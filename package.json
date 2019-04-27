@@ -5,5 +5,24 @@
   "main": "index.js",
   "repository": "git@github.com:nicgirault/aws-spa.git",
   "author": "nicgirault <nic.girault@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "scripts": {
+    "build": "babel src -d lib --extensions '.ts'",
+    "check-types": "tsc"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "yarn check-types"
+    }
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@babel/cli": "^7.4.4",
+    "@babel/core": "^7.4.4",
+    "@babel/plugin-proposal-class-properties": "^7.4.4",
+    "@babel/plugin-proposal-object-rest-spread": "^7.4.4",
+    "@babel/preset-typescript": "^7.3.3",
+    "husky": "^2.1.0",
+    "typescript": "^3.4.5"
+  }
 }
