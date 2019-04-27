@@ -55,6 +55,28 @@ export const setBucketWebsite = (bucketName: string) => {
     .promise();
 };
 
+export const setBucketPolicy = (bucketName: string) => {
+  console.log(`[S3] Allow public read...`);
+  return s3
+    .putBucketPolicy({
+      Bucket: bucketName,
+      Policy: JSON.stringify({
+        Statement: [
+          {
+            Sid: "AllowPublicRead",
+            Effect: "Allow",
+            Principal: {
+              AWS: "*"
+            },
+            Action: "s3:GetObject",
+            Resource: `arn:aws:s3:::${bucketName}/*`
+          }
+        ]
+      })
+    })
+    .promise();
+};
+
 export const identifyingTag: Tag = {
   Key: "created-by",
   Value: "aws-spa"

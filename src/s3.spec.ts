@@ -1,4 +1,9 @@
-import { createBucket, identifyingTag, setBucketWebsite } from "./s3";
+import {
+  createBucket,
+  identifyingTag,
+  setBucketWebsite,
+  setBucketPolicy
+} from "./s3";
 import { s3 } from "./aws-services";
 
 jest.mock("./aws-services");
@@ -123,6 +128,49 @@ describe("s3", () => {
 
       try {
         await setBucketWebsite("some-bucket");
+        throw new Error("This test should have failed");
+      } catch (error) {
+        expect(error.message).toEqual("some error");
+      }
+    });
+  });
+
+  describe("setBucketPolicy", () => {
+    const putBucketPolicySpy = jest.spyOn(s3, "putBucketPolicy");
+
+    afterEach(() => {
+      putBucketPolicySpy.mockReset();
+      logSpy.mockReset();
+    });
+
+    it("should log a message", async () => {
+      putBucketPolicySpy.mockReturnValue(resolve);
+      await setBucketPolicy("some-bucket");
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logSpy.mock.calls[0][0]).toContain("[S3] Allow public read");
+    });
+
+    it("should set bucket policy", async () => {
+      putBucketPolicySpy.mockReturnValue(resolve);
+
+      await setBucketPolicy("some-bucket");
+      expect(putBucketPolicySpy).toHaveBeenCalledTimes(1);
+
+      const policyParams: any = putBucketPolicySpy.mock.calls[0][0];
+      const statement = JSON.parse(policyParams.Policy).Statement[0];
+      expect(policyParams.Bucket).toEqual("some-bucket");
+      expect(statement.Sid).toEqual("AllowPublicRead");
+      expect(statement.Effect).toEqual("Allow");
+      expect(statement.Principal.AWS).toEqual("*");
+      expect(statement.Action).toEqual("s3:GetObject");
+      expect(statement.Resource).toEqual("arn:aws:s3:::some-bucket/*");
+    });
+
+    it("should throw if s3.putBucketWebsite throws", async () => {
+      putBucketPolicySpy.mockReturnValue(reject(400, "some error"));
+
+      try {
+        await setBucketPolicy("some-bucket");
         throw new Error("This test should have failed");
       } catch (error) {
         expect(error.message).toEqual("some error");
