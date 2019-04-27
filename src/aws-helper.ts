@@ -9,7 +9,7 @@ export const getAll = async <Entity>(
 ) => {
   let nextMarker: string | undefined = undefined;
   let page = 0;
-  const entities = [];
+  const entities: Entity[] = [];
   while (true) {
     page++;
     const entitiesResponse: {
