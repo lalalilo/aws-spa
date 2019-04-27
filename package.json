@@ -16,7 +16,9 @@
       "pre-commit": "yarn check-types"
     }
   },
-  "dependencies": {},
+  "dependencies": {
+    "aws-sdk": "^2.444.0"
+  },
   "devDependencies": {
     "@babel/cli": "^7.4.4",
     "@babel/core": "^7.4.4",
@@ -24,7 +26,9 @@
     "@babel/plugin-proposal-object-rest-spread": "^7.4.4",
     "@babel/preset-env": "^7.4.4",
     "@babel/preset-typescript": "^7.3.3",
+    "@types/aws-sdk": "^2.7.0",
     "@types/jest": "^24.0.11",
+    "@types/node": "^11.13.8",
     "husky": "^2.1.0",
     "jest": "^24.7.1",
     "typescript": "^3.4.5"
