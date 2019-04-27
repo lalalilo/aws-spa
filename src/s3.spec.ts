@@ -2,20 +2,24 @@ import {
   createBucket,
   identifyingTag,
   setBucketWebsite,
-  setBucketPolicy
+  setBucketPolicy,
+  doesS3BucketExists
 } from "./s3";
 import { s3 } from "./aws-services";
 
 jest.mock("./aws-services");
-const resolve: any = {
-  promise: () => Promise.resolve()
-};
+const resolve = (value?: any): any => ({
+  promise: () => Promise.resolve(value)
+});
 const reject = (statusCode: number, message: string = ""): any => ({
   promise: () => Promise.reject({ statusCode, message })
 });
 
 describe("s3", () => {
   const logSpy = jest.spyOn(console, "log");
+  afterEach(() => {
+    logSpy.mockReset();
+  });
 
   describe("createBucket", () => {
     const createBucketSpy = jest.spyOn(s3, "createBucket");
@@ -24,7 +28,6 @@ describe("s3", () => {
     afterEach(() => {
       createBucketSpy.mockReset();
       putBucketTaggingSpy.mockReset();
-      logSpy.mockReset();
     });
 
     it("should exists", () => {
@@ -32,8 +35,8 @@ describe("s3", () => {
     });
 
     it("should log a creation messages", async () => {
-      createBucketSpy.mockReturnValue(resolve);
-      putBucketTaggingSpy.mockReturnValue(resolve);
+      createBucketSpy.mockReturnValue(resolve());
+      putBucketTaggingSpy.mockReturnValue(resolve());
       await createBucket("some-bucket");
       expect(logSpy).toHaveBeenCalledTimes(2);
       expect(logSpy.mock.calls[0][0]).toContain('[S3] Creating "some-bucket"');
@@ -41,8 +44,8 @@ describe("s3", () => {
     });
 
     it("should call s3.createBucket with bucket name", async () => {
-      createBucketSpy.mockReturnValue(resolve);
-      putBucketTaggingSpy.mockReturnValue(resolve);
+      createBucketSpy.mockReturnValue(resolve());
+      putBucketTaggingSpy.mockReturnValue(resolve());
       await createBucket("some-bucket");
       expect(createBucketSpy).toHaveBeenCalledTimes(1);
       const createBucketParams: any = createBucketSpy.mock.calls[0][0];
@@ -74,8 +77,8 @@ describe("s3", () => {
     });
 
     it("should tag created bucket", async () => {
-      createBucketSpy.mockReturnValue(resolve);
-      putBucketTaggingSpy.mockReturnValue(resolve);
+      createBucketSpy.mockReturnValue(resolve());
+      putBucketTaggingSpy.mockReturnValue(resolve());
 
       await createBucket("some-bucket");
       expect(putBucketTaggingSpy).toHaveBeenCalledTimes(1);
@@ -86,7 +89,7 @@ describe("s3", () => {
     });
 
     it("should throw if s3.putBucketTagging throws", async () => {
-      createBucketSpy.mockReturnValue(resolve);
+      createBucketSpy.mockReturnValue(resolve());
       createBucketSpy.mockReturnValue(reject(400, "some error"));
 
       try {
@@ -103,18 +106,17 @@ describe("s3", () => {
 
     afterEach(() => {
       putBucketWebsiteSpy.mockReset();
-      logSpy.mockReset();
     });
 
     it("should log a message", async () => {
-      putBucketWebsiteSpy.mockReturnValue(resolve);
+      putBucketWebsiteSpy.mockReturnValue(resolve());
       await setBucketWebsite("some-bucket");
       expect(logSpy).toHaveBeenCalledTimes(1);
       expect(logSpy.mock.calls[0][0]).toContain("[S3] Set bucket website");
     });
 
     it("should set bucket website", async () => {
-      putBucketWebsiteSpy.mockReturnValue(resolve);
+      putBucketWebsiteSpy.mockReturnValue(resolve());
 
       await setBucketWebsite("some-bucket");
       expect(putBucketWebsiteSpy).toHaveBeenCalledTimes(1);
@@ -140,18 +142,17 @@ describe("s3", () => {
 
     afterEach(() => {
       putBucketPolicySpy.mockReset();
-      logSpy.mockReset();
     });
 
     it("should log a message", async () => {
-      putBucketPolicySpy.mockReturnValue(resolve);
+      putBucketPolicySpy.mockReturnValue(resolve());
       await setBucketPolicy("some-bucket");
       expect(logSpy).toHaveBeenCalledTimes(1);
       expect(logSpy.mock.calls[0][0]).toContain("[S3] Allow public read");
     });
 
     it("should set bucket policy", async () => {
-      putBucketPolicySpy.mockReturnValue(resolve);
+      putBucketPolicySpy.mockReturnValue(resolve());
 
       await setBucketPolicy("some-bucket");
       expect(putBucketPolicySpy).toHaveBeenCalledTimes(1);
@@ -174,6 +175,93 @@ describe("s3", () => {
         throw new Error("This test should have failed");
       } catch (error) {
         expect(error.message).toEqual("some error");
+      }
+    });
+  });
+
+  describe("doesS3BucketExists", () => {
+    const headBucketSpy = jest.spyOn(s3, "headBucket");
+    const getBucketTaggingSpy = jest.spyOn(s3, "getBucketTagging");
+
+    it("should handle success case", async () => {
+      headBucketSpy.mockReturnValue(resolve());
+      getBucketTaggingSpy.mockReturnValue(
+        resolve({
+          TagSet: [identifyingTag]
+        })
+      );
+
+      expect(await doesS3BucketExists("some-bucket")).toBe(true);
+      expect(logSpy).toBeCalledTimes(3);
+      expect(logSpy.mock.calls[0][0]).toContain(
+        'Looking for bucket "some-bucket"'
+      );
+      expect(logSpy.mock.calls[1][0]).toContain("Checking tags");
+      expect(logSpy.mock.calls[2][0]).toMatch(/Tag "(.)+:(.)+" found/);
+    });
+
+    it("should handle not found bucket", async () => {
+      headBucketSpy.mockReturnValue(reject(404));
+
+      expect(await doesS3BucketExists("some-bucket")).toBe(false);
+      expect(logSpy).toBeCalledTimes(2);
+      expect(logSpy.mock.calls[1][0]).toContain(
+        'Bucket "some-bucket" not found'
+      );
+    });
+
+    it("should throw if headBucket throws non 404 error", async () => {
+      headBucketSpy.mockReturnValue(reject(400, "some message"));
+
+      try {
+        await doesS3BucketExists("some-bucket");
+        throw new Error("This test should have failed");
+      } catch (error) {
+        expect(error.message).toEqual("some message");
+      }
+    });
+
+    it("should throw if bucket has not been created by aws-spa (no tagging)", async () => {
+      headBucketSpy.mockReturnValue(resolve());
+      getBucketTaggingSpy.mockReturnValue(reject(404));
+
+      try {
+        await doesS3BucketExists("some-bucket");
+        throw new Error("This test should have failed");
+      } catch (error) {
+        expect(error.message).toContain(
+          'Bucket "some-bucket" does not seem to have been created by aws-spa'
+        );
+      }
+    });
+
+    it("should throw if bucket has not been created by aws-spa (tagging but no identifying tag)", async () => {
+      headBucketSpy.mockReturnValue(resolve());
+      getBucketTaggingSpy.mockReturnValue(
+        resolve({
+          TagSet: [{ Key: "some tag key", Value: "some tag value" }]
+        })
+      );
+
+      try {
+        await doesS3BucketExists("some-bucket");
+        throw new Error("This test should have failed");
+      } catch (error) {
+        expect(error.message).toContain(
+          'Bucket "some-bucket" does not seem to have been created by aws-spa'
+        );
+      }
+    });
+
+    it("should throw if getBucketTagging throws", async () => {
+      headBucketSpy.mockReturnValue(resolve());
+      getBucketTaggingSpy.mockReturnValue(reject(400, "some message"));
+
+      try {
+        await doesS3BucketExists("some-bucket");
+        throw new Error("This test should have failed");
+      } catch (error) {
+        expect(error.message).toEqual("some message");
       }
     });
   });

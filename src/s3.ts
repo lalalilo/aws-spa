@@ -4,7 +4,48 @@ import { s3 } from "./aws-services";
 
 export const syncToS3 = function(bucketName: string, folder: string) {};
 
-export const doesS3BucketExists = async (bucketName: string) => {};
+export const doesS3BucketExists = async (bucketName: string) => {
+  try {
+    console.log(`Looking for bucket "${bucketName}"...`);
+    await s3.headBucket({ Bucket: bucketName }).promise();
+  } catch (error) {
+    if (error.statusCode === 404) {
+      console.log(`Bucket "${bucketName}" not found...`);
+      return false;
+    }
+
+    throw error;
+  }
+
+  console.log(`Bucket "${bucketName}" exists. Checking tags...`);
+
+  const errorMessage = `Bucket "${bucketName}" does not seem to have been created by aws-spa. You can either delete the existing bucket or make sure it is well configured and add the tag "${
+    identifyingTag.Key
+  }:${identifyingTag.Value}"`;
+
+  try {
+    const { TagSet } = await s3
+      .getBucketTagging({ Bucket: bucketName })
+      .promise();
+    for (const tag of TagSet) {
+      if (
+        tag.Key === identifyingTag.Key &&
+        tag.Value === identifyingTag.Value
+      ) {
+        console.log(
+          `Tag "${identifyingTag.Key}:${identifyingTag.Value}" found`
+        );
+        return true;
+      }
+    }
+    throw new Error(errorMessage);
+  } catch (error) {
+    if (error.statusCode === 404) {
+      throw new Error(errorMessage);
+    }
+    throw error;
+  }
+};
 
 export const createBucket = async (bucketName: string) => {
   console.log(`[S3] Creating "${bucketName}" bucket...`);
