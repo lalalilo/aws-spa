@@ -7,6 +7,16 @@ import {
   setBucketPolicy
 } from "./s3";
 import { getCertificateARN, createCertificate } from "./acm";
+import {
+  findCloudfrontDistribution,
+  createCloudFrontDistribution,
+  clearCloudfrontCache
+} from "./cloudfront";
+
+interface DistributionInfo {
+  Id: string;
+  DomainName: string;
+}
 
 export const deploy = async (
   domainName: string,
@@ -35,6 +45,17 @@ export const deploy = async (
     certificateArn = await createCertificate(domainName);
   }
 
+  let distribution: DistributionInfo | null = await findCloudfrontDistribution(
+    domainName
+  );
+  if (!distribution) {
+    distribution = await createCloudFrontDistribution(
+      domainName,
+      certificateArn
+    );
+  }
+
   console.log(`Uploading "${folder}" content...`);
   await syncToS3(folder, domainName);
+  await clearCloudfrontCache(distribution.Id);
 };

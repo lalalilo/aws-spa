@@ -64,6 +64,8 @@ export const findCloudfrontDistribution = async (originBucketName: string) => {
     }
     return distribution;
   }
+
+  return null;
 };
 
 export const createCloudFrontDistribution = async (
