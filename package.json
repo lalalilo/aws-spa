@@ -1,0 +1,9 @@
+{
+  "name": "aws-spa",
+  "version": "1.0.0",
+  "description": "A no-brainer script to deploy a single page app on AWS",
+  "main": "index.js",
+  "repository": "git@github.com:nicgirault/aws-spa.git",
+  "author": "nicgirault <nic.girault@gmail.com>",
+  "license": "MIT"
+}
