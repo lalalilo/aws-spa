@@ -36,6 +36,25 @@ export const createBucket = async (bucketName: string) => {
     .promise();
 };
 
+export const setBucketWebsite = (bucketName: string) => {
+  console.log(
+    `[S3] Set bucket website with IndexDocument: "index.html" & ErrorDocument: "index.html"...`
+  );
+  return s3
+    .putBucketWebsite({
+      Bucket: bucketName,
+      WebsiteConfiguration: {
+        ErrorDocument: {
+          Key: "index.html"
+        },
+        IndexDocument: {
+          Suffix: "index.html"
+        }
+      }
+    })
+    .promise();
+};
+
 export const identifyingTag: Tag = {
   Key: "created-by",
   Value: "aws-spa"

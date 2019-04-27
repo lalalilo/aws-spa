@@ -1,4 +1,4 @@
-import { createBucket, identifyingTag } from "./s3";
+import { createBucket, identifyingTag, setBucketWebsite } from "./s3";
 import { s3 } from "./aws-services";
 
 jest.mock("./aws-services");
@@ -10,6 +10,8 @@ const reject = (statusCode: number, message: string = ""): any => ({
 });
 
 describe("s3", () => {
+  const logSpy = jest.spyOn(console, "log");
+
   describe("createBucket", () => {
     const createBucketSpy = jest.spyOn(s3, "createBucket");
     const putBucketTaggingSpy = jest.spyOn(s3, "putBucketTagging");
@@ -17,16 +19,16 @@ describe("s3", () => {
     afterEach(() => {
       createBucketSpy.mockReset();
       putBucketTaggingSpy.mockReset();
+      logSpy.mockReset();
     });
 
     it("should exists", () => {
       expect(createBucket).toBeDefined();
     });
 
-    it("should log a create message", async () => {
+    it("should log a creation messages", async () => {
       createBucketSpy.mockReturnValue(resolve);
       putBucketTaggingSpy.mockReturnValue(resolve);
-      const logSpy = jest.spyOn(console, "log");
       await createBucket("some-bucket");
       expect(logSpy).toHaveBeenCalledTimes(2);
       expect(logSpy.mock.calls[0][0]).toContain('[S3] Creating "some-bucket"');
@@ -84,6 +86,43 @@ describe("s3", () => {
 
       try {
         await createBucket("some-bucket");
+        throw new Error("This test should have failed");
+      } catch (error) {
+        expect(error.message).toEqual("some error");
+      }
+    });
+  });
+
+  describe("setBucketWebsite", () => {
+    const putBucketWebsiteSpy = jest.spyOn(s3, "putBucketWebsite");
+
+    afterEach(() => {
+      putBucketWebsiteSpy.mockReset();
+      logSpy.mockReset();
+    });
+
+    it("should log a message", async () => {
+      putBucketWebsiteSpy.mockReturnValue(resolve);
+      await setBucketWebsite("some-bucket");
+      expect(logSpy).toHaveBeenCalledTimes(1);
+      expect(logSpy.mock.calls[0][0]).toContain("[S3] Set bucket website");
+    });
+
+    it("should set bucket website", async () => {
+      putBucketWebsiteSpy.mockReturnValue(resolve);
+
+      await setBucketWebsite("some-bucket");
+      expect(putBucketWebsiteSpy).toHaveBeenCalledTimes(1);
+
+      const websiteParams: any = putBucketWebsiteSpy.mock.calls[0][0];
+      expect(websiteParams.Bucket).toEqual("some-bucket");
+    });
+
+    it("should throw if s3.putBucketWebsite throws", async () => {
+      putBucketWebsiteSpy.mockReturnValue(reject(400, "some error"));
+
+      try {
+        await setBucketWebsite("some-bucket");
         throw new Error("This test should have failed");
       } catch (error) {
         expect(error.message).toEqual("some error");
