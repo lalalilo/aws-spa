@@ -6,6 +6,7 @@ import {
   setBucketWebsite,
   setBucketPolicy
 } from "./s3";
+import { getCertificateARN, createCertificate } from "./acm";
 
 export const deploy = async (
   domainName: string,
@@ -28,6 +29,11 @@ export const deploy = async (
   }
   await setBucketWebsite(domainName);
   await setBucketPolicy(domainName);
+
+  let certificateArn = await getCertificateARN(domainName);
+  if (!certificateArn) {
+    certificateArn = await createCertificate(domainName);
+  }
 
   console.log(`Uploading "${folder}" content...`);
   await syncToS3(folder, domainName);
