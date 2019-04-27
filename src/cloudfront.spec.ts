@@ -1,6 +1,6 @@
 import { cloudfront } from "./aws-services";
 import { awsResolve } from "./test-helper";
-import { findCloudfrontDistribution } from "./cloudfront";
+import { findCloudfrontDistribution, clearCloudfrontCache } from "./cloudfront";
 
 describe("cloudfront", () => {
   describe("findDistribution", () => {
@@ -55,6 +55,26 @@ describe("cloudfront", () => {
       );
       expect(distribution).toBeDefined();
       expect(distribution.Id).toEqual("HELLO");
+    });
+  });
+
+  describe("clearCloudfrontCache", () => {
+    const createInvalidationMock = jest.spyOn(cloudfront, "createInvalidation");
+
+    afterEach(() => {
+      createInvalidationMock.mockReset();
+    });
+
+    it("should invalidate index.html", async () => {
+      createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }));
+      await clearCloudfrontCache("some-distribution-id");
+
+      expect(createInvalidationMock).toHaveBeenCalledTimes(1);
+      const invalidationParams: any = createInvalidationMock.mock.calls[0][0];
+      expect(invalidationParams.DistributionId).toEqual("some-distribution-id");
+      expect(invalidationParams.InvalidationBatch.Paths.Items[0]).toEqual(
+        "/index.html"
+      );
     });
   });
 });

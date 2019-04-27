@@ -30,7 +30,7 @@ export const findCloudfrontDistribution = async (originBucketName: string) => {
       distribution.Origins.Items[0] &&
       distribution.Origins.Items[0].Id === getOriginId(originBucketName)
     ) {
-      console.log(`cloudfront distribution found: ${distribution.Id}`);
+      logger.info(`cloudfront distribution found: ${distribution.Id}`);
       return distribution;
     }
   }
@@ -38,3 +38,28 @@ export const findCloudfrontDistribution = async (originBucketName: string) => {
 
 const getOriginId = (domainName: string) =>
   `S3-Website-${domainName}.${websiteEndpoint[bucketRegion]}`;
+
+export const clearCloudfrontCache = async (distributionId: string) => {
+  logger.info("Creating CloudFront invalidation...");
+  const { Invalidation } = await cloudfront
+    .createInvalidation({
+      DistributionId: distributionId,
+      InvalidationBatch: {
+        CallerReference: Date.now().toString(),
+        Paths: {
+          Quantity: 1,
+          Items: ["/index.html"]
+        }
+      }
+    })
+    .promise();
+
+  if (!Invalidation) {
+    return;
+  }
+
+  // cloudfront.waitFor('invalidationCompleted', {
+  //   DistributionId: distributionId,
+  //   Id: Invalidation.Id
+  // });
+};
