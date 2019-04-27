@@ -3,11 +3,17 @@ import {
   identifyingTag,
   setBucketWebsite,
   setBucketPolicy,
-  doesS3BucketExists
+  doesS3BucketExists,
+  syncToS3,
+  indexCacheControl
 } from "./s3";
 import { s3 } from "./aws-services";
+import * as fsHelper from "./fs-helper";
+import * as fs from "fs";
 
 jest.mock("./aws-services");
+jest.mock("fs");
+
 const resolve = (value?: any): any => ({
   promise: () => Promise.resolve(value)
 });
@@ -263,6 +269,51 @@ describe("s3", () => {
       } catch (error) {
         expect(error.message).toEqual("some message");
       }
+    });
+  });
+
+  describe("syncToS3", () => {
+    const someFiles = [
+      "images/icons/logo.png",
+      "index.html",
+      "static/1.bbbbbb.css",
+      "static/1.bbbbbb.js",
+      "static/main.aaaaaa.js"
+    ].map(path => `some-folder/${path}`);
+    const readRecursivelyMock = jest
+      .spyOn(fsHelper, "readRecursively")
+      .mockReturnValue(someFiles);
+    const putObjectSpy = jest.spyOn(s3, "putObject").mockReturnValue(resolve());
+    const createReadStreamSpy = jest
+      .spyOn(fs, "createReadStream")
+      .mockImplementation(() => "file content" as any);
+
+    afterEach(() => {
+      readRecursivelyMock.mockClear();
+      putObjectSpy.mockClear();
+      createReadStreamSpy.mockClear();
+    });
+
+    it("should call s3.putObject for each file returned by readRecursively", async () => {
+      await syncToS3("some-folder", "some-bucket");
+      expect(readRecursivelyMock).toHaveBeenCalledWith("some-folder");
+      expect(putObjectSpy).toHaveBeenCalledTimes(someFiles.length);
+      for (const call of putObjectSpy.mock.calls as any) {
+        expect(call[0].Bucket).toEqual("some-bucket");
+        expect(call[0].Key).not.toContain("some-folder");
+      }
+    });
+
+    it("should set the right cache-control", async () => {
+      await syncToS3("some-folder", "some-bucket");
+      expect(readRecursivelyMock).toHaveBeenCalledWith("some-folder");
+      expect(putObjectSpy).toHaveBeenCalledTimes(someFiles.length);
+
+      const putObjectIndex: any = putObjectSpy.mock.calls.find(
+        (call: any) => call[0].Key === "index.html"
+      );
+      expect(putObjectIndex).toBeDefined();
+      expect(putObjectIndex.CacheControl).toEqual(indexCacheControl);
     });
   });
 });

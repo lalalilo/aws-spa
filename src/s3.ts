@@ -1,8 +1,9 @@
 import { Tag } from "aws-sdk/clients/s3";
+import { createReadStream } from "fs";
+import { lookup } from "mime-types";
 
 import { s3 } from "./aws-services";
-
-export const syncToS3 = function(bucketName: string, folder: string) {};
+import { readRecursively } from "./fs-helper";
 
 export const doesS3BucketExists = async (bucketName: string) => {
   try {
@@ -121,4 +122,37 @@ export const setBucketPolicy = (bucketName: string) => {
 export const identifyingTag: Tag = {
   Key: "created-by",
   Value: "aws-spa"
+};
+
+// This will allow CloudFront to store the file on the edge location,
+// but it will force it to revalidate it with the origin with each request.
+// If the file hasn't changed, CloudFront will not need to transfer the
+// file's entire content from the origin.
+export const indexCacheControl =
+  "public, must-revalidate, proxy-revalidate, max-age=0";
+
+// js & css files should have a hash so if index.html change: the js & css
+// file will change. It allows to have an aggressive cache for js & css files.
+const nonIndexCacheControl = "max-age=31536000";
+
+export const syncToS3 = function(folder: string, bucketName: string) {
+  const filesToUpload = readRecursively(folder);
+  return Promise.all(
+    filesToUpload.map(file => {
+      const filenameParts = file.split(".");
+      const key = file.replace(`${folder}/`, "");
+      return s3
+        .putObject({
+          Bucket: bucketName,
+          Key: key,
+          Body: createReadStream(file),
+          CacheControl:
+            key === "index.html" ? indexCacheControl : nonIndexCacheControl,
+          ContentType:
+            lookup(filenameParts[filenameParts.length - 1]) ||
+            "application/octet-stream"
+        })
+        .promise();
+    })
+  );
 };

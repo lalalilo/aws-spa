@@ -4,5 +4,6 @@ export const s3 = {
   putBucketWebsite: jest.fn(),
   putBucketPolicy: jest.fn(),
   headBucket: jest.fn(),
-  getBucketTagging: jest.fn()
+  getBucketTagging: jest.fn(),
+  putObject: jest.fn()
 };
