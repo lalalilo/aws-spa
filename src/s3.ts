@@ -4,21 +4,22 @@ import { lookup } from "mime-types";
 
 import { s3 } from "./aws-services";
 import { readRecursively } from "./fs-helper";
+import { logger } from "./logger";
 
 export const doesS3BucketExists = async (bucketName: string) => {
   try {
-    console.log(`Looking for bucket "${bucketName}"...`);
+    logger.info(`Looking for bucket "${bucketName}"...`);
     await s3.headBucket({ Bucket: bucketName }).promise();
   } catch (error) {
     if (error.statusCode === 404) {
-      console.log(`Bucket "${bucketName}" not found...`);
+      logger.info(`Bucket "${bucketName}" not found...`);
       return false;
     }
 
     throw error;
   }
 
-  console.log(`Bucket "${bucketName}" exists. Checking tags...`);
+  logger.info(`Bucket "${bucketName}" exists. Checking tags...`);
 
   const errorMessage = `Bucket "${bucketName}" does not seem to have been created by aws-spa. You can either delete the existing bucket or make sure it is well configured and add the tag "${
     identifyingTag.Key
@@ -33,7 +34,7 @@ export const doesS3BucketExists = async (bucketName: string) => {
         tag.Key === identifyingTag.Key &&
         tag.Value === identifyingTag.Value
       ) {
-        console.log(
+        logger.info(
           `Tag "${identifyingTag.Key}:${identifyingTag.Value}" found`
         );
         return true;
@@ -49,7 +50,7 @@ export const doesS3BucketExists = async (bucketName: string) => {
 };
 
 export const createBucket = async (bucketName: string) => {
-  console.log(`[S3] Creating "${bucketName}" bucket...`);
+  logger.info(`[S3] Creating "${bucketName}" bucket...`);
   try {
     await s3
       .createBucket({
@@ -65,7 +66,7 @@ export const createBucket = async (bucketName: string) => {
     throw error;
   }
 
-  console.log(
+  logger.info(
     `[S3] Add tag "${identifyingTag.Key}:${identifyingTag.Value}"...`
   );
   await s3
@@ -79,7 +80,7 @@ export const createBucket = async (bucketName: string) => {
 };
 
 export const setBucketWebsite = (bucketName: string) => {
-  console.log(
+  logger.info(
     `[S3] Set bucket website with IndexDocument: "index.html" & ErrorDocument: "index.html"...`
   );
   return s3
@@ -98,7 +99,7 @@ export const setBucketWebsite = (bucketName: string) => {
 };
 
 export const setBucketPolicy = (bucketName: string) => {
-  console.log(`[S3] Allow public read...`);
+  logger.info(`[S3] Allow public read...`);
   return s3
     .putBucketPolicy({
       Bucket: bucketName,

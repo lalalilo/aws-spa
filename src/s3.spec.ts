@@ -10,19 +10,13 @@ import {
 import { s3 } from "./aws-services";
 import * as fsHelper from "./fs-helper";
 import * as fs from "fs";
+import { awsResolve, awsReject } from "./test-helper";
+import { logger } from "./logger";
 
-jest.mock("./aws-services");
 jest.mock("fs");
 
-const resolve = (value?: any): any => ({
-  promise: () => Promise.resolve(value)
-});
-const reject = (statusCode: number, message: string = ""): any => ({
-  promise: () => Promise.reject({ statusCode, message })
-});
-
 describe("s3", () => {
-  const logSpy = jest.spyOn(console, "log");
+  const logSpy = jest.spyOn(logger, "info");
   afterEach(() => {
     logSpy.mockReset();
   });
@@ -41,8 +35,8 @@ describe("s3", () => {
     });
 
     it("should log a creation messages", async () => {
-      createBucketSpy.mockReturnValue(resolve());
-      putBucketTaggingSpy.mockReturnValue(resolve());
+      createBucketSpy.mockReturnValue(awsResolve());
+      putBucketTaggingSpy.mockReturnValue(awsResolve());
       await createBucket("some-bucket");
       expect(logSpy).toHaveBeenCalledTimes(2);
       expect(logSpy.mock.calls[0][0]).toContain('[S3] Creating "some-bucket"');
@@ -50,8 +44,8 @@ describe("s3", () => {
     });
 
     it("should call s3.createBucket with bucket name", async () => {
-      createBucketSpy.mockReturnValue(resolve());
-      putBucketTaggingSpy.mockReturnValue(resolve());
+      createBucketSpy.mockReturnValue(awsResolve());
+      putBucketTaggingSpy.mockReturnValue(awsResolve());
       await createBucket("some-bucket");
       expect(createBucketSpy).toHaveBeenCalledTimes(1);
       const createBucketParams: any = createBucketSpy.mock.calls[0][0];
@@ -59,7 +53,7 @@ describe("s3", () => {
     });
 
     it("should throw if s3.createBucket throws", async () => {
-      createBucketSpy.mockReturnValue(reject(400, "some error"));
+      createBucketSpy.mockReturnValue(awsReject(400, "some error"));
 
       try {
         await createBucket("some-bucket");
@@ -71,7 +65,7 @@ describe("s3", () => {
     });
 
     it("should handle bucket in other region", async () => {
-      createBucketSpy.mockReturnValue(reject(409));
+      createBucketSpy.mockReturnValue(awsReject(409));
 
       try {
         await createBucket("some-bucket");
@@ -83,8 +77,8 @@ describe("s3", () => {
     });
 
     it("should tag created bucket", async () => {
-      createBucketSpy.mockReturnValue(resolve());
-      putBucketTaggingSpy.mockReturnValue(resolve());
+      createBucketSpy.mockReturnValue(awsResolve());
+      putBucketTaggingSpy.mockReturnValue(awsResolve());
 
       await createBucket("some-bucket");
       expect(putBucketTaggingSpy).toHaveBeenCalledTimes(1);
@@ -95,8 +89,8 @@ describe("s3", () => {
     });
 
     it("should throw if s3.putBucketTagging throws", async () => {
-      createBucketSpy.mockReturnValue(resolve());
-      createBucketSpy.mockReturnValue(reject(400, "some error"));
+      createBucketSpy.mockReturnValue(awsResolve());
+      createBucketSpy.mockReturnValue(awsReject(400, "some error"));
 
       try {
         await createBucket("some-bucket");
@@ -115,14 +109,14 @@ describe("s3", () => {
     });
 
     it("should log a message", async () => {
-      putBucketWebsiteSpy.mockReturnValue(resolve());
+      putBucketWebsiteSpy.mockReturnValue(awsResolve());
       await setBucketWebsite("some-bucket");
       expect(logSpy).toHaveBeenCalledTimes(1);
       expect(logSpy.mock.calls[0][0]).toContain("[S3] Set bucket website");
     });
 
     it("should set bucket website", async () => {
-      putBucketWebsiteSpy.mockReturnValue(resolve());
+      putBucketWebsiteSpy.mockReturnValue(awsResolve());
 
       await setBucketWebsite("some-bucket");
       expect(putBucketWebsiteSpy).toHaveBeenCalledTimes(1);
@@ -132,7 +126,7 @@ describe("s3", () => {
     });
 
     it("should throw if s3.putBucketWebsite throws", async () => {
-      putBucketWebsiteSpy.mockReturnValue(reject(400, "some error"));
+      putBucketWebsiteSpy.mockReturnValue(awsReject(400, "some error"));
 
       try {
         await setBucketWebsite("some-bucket");
@@ -151,14 +145,14 @@ describe("s3", () => {
     });
 
     it("should log a message", async () => {
-      putBucketPolicySpy.mockReturnValue(resolve());
+      putBucketPolicySpy.mockReturnValue(awsResolve());
       await setBucketPolicy("some-bucket");
       expect(logSpy).toHaveBeenCalledTimes(1);
       expect(logSpy.mock.calls[0][0]).toContain("[S3] Allow public read");
     });
 
     it("should set bucket policy", async () => {
-      putBucketPolicySpy.mockReturnValue(resolve());
+      putBucketPolicySpy.mockReturnValue(awsResolve());
 
       await setBucketPolicy("some-bucket");
       expect(putBucketPolicySpy).toHaveBeenCalledTimes(1);
@@ -174,7 +168,7 @@ describe("s3", () => {
     });
 
     it("should throw if s3.putBucketWebsite throws", async () => {
-      putBucketPolicySpy.mockReturnValue(reject(400, "some error"));
+      putBucketPolicySpy.mockReturnValue(awsReject(400, "some error"));
 
       try {
         await setBucketPolicy("some-bucket");
@@ -190,9 +184,9 @@ describe("s3", () => {
     const getBucketTaggingSpy = jest.spyOn(s3, "getBucketTagging");
 
     it("should handle success case", async () => {
-      headBucketSpy.mockReturnValue(resolve());
+      headBucketSpy.mockReturnValue(awsResolve());
       getBucketTaggingSpy.mockReturnValue(
-        resolve({
+        awsResolve({
           TagSet: [identifyingTag]
         })
       );
@@ -207,7 +201,7 @@ describe("s3", () => {
     });
 
     it("should handle not found bucket", async () => {
-      headBucketSpy.mockReturnValue(reject(404));
+      headBucketSpy.mockReturnValue(awsReject(404));
 
       expect(await doesS3BucketExists("some-bucket")).toBe(false);
       expect(logSpy).toBeCalledTimes(2);
@@ -217,7 +211,7 @@ describe("s3", () => {
     });
 
     it("should throw if headBucket throws non 404 error", async () => {
-      headBucketSpy.mockReturnValue(reject(400, "some message"));
+      headBucketSpy.mockReturnValue(awsReject(400, "some message"));
 
       try {
         await doesS3BucketExists("some-bucket");
@@ -228,8 +222,8 @@ describe("s3", () => {
     });
 
     it("should throw if bucket has not been created by aws-spa (no tagging)", async () => {
-      headBucketSpy.mockReturnValue(resolve());
-      getBucketTaggingSpy.mockReturnValue(reject(404));
+      headBucketSpy.mockReturnValue(awsResolve());
+      getBucketTaggingSpy.mockReturnValue(awsReject(404));
 
       try {
         await doesS3BucketExists("some-bucket");
@@ -242,9 +236,9 @@ describe("s3", () => {
     });
 
     it("should throw if bucket has not been created by aws-spa (tagging but no identifying tag)", async () => {
-      headBucketSpy.mockReturnValue(resolve());
+      headBucketSpy.mockReturnValue(awsResolve());
       getBucketTaggingSpy.mockReturnValue(
-        resolve({
+        awsResolve({
           TagSet: [{ Key: "some tag key", Value: "some tag value" }]
         })
       );
@@ -260,8 +254,8 @@ describe("s3", () => {
     });
 
     it("should throw if getBucketTagging throws", async () => {
-      headBucketSpy.mockReturnValue(resolve());
-      getBucketTaggingSpy.mockReturnValue(reject(400, "some message"));
+      headBucketSpy.mockReturnValue(awsResolve());
+      getBucketTaggingSpy.mockReturnValue(awsReject(400, "some message"));
 
       try {
         await doesS3BucketExists("some-bucket");
@@ -283,7 +277,9 @@ describe("s3", () => {
     const readRecursivelyMock = jest
       .spyOn(fsHelper, "readRecursively")
       .mockReturnValue(someFiles);
-    const putObjectSpy = jest.spyOn(s3, "putObject").mockReturnValue(resolve());
+    const putObjectSpy = jest
+      .spyOn(s3, "putObject")
+      .mockReturnValue(awsResolve());
     const createReadStreamSpy = jest
       .spyOn(fs, "createReadStream")
       .mockImplementation(() => "file content" as any);
@@ -313,7 +309,7 @@ describe("s3", () => {
         (call: any) => call[0].Key === "index.html"
       );
       expect(putObjectIndex).toBeDefined();
-      expect(putObjectIndex.CacheControl).toEqual(indexCacheControl);
+      expect(putObjectIndex[0].CacheControl).toEqual(indexCacheControl);
     });
   });
 });
