@@ -67,7 +67,9 @@ export const createBucket = async (bucketName: string) => {
   }
 
   logger.info(
-    `[S3] Add tag "${identifyingTag.Key}:${identifyingTag.Value}"...`
+    `[S3] Add tag "${identifyingTag.Key}:${
+      identifyingTag.Value
+    }" to "${bucketName}"...`
   );
   await s3
     .putBucketTagging({
@@ -81,7 +83,7 @@ export const createBucket = async (bucketName: string) => {
 
 export const setBucketWebsite = (bucketName: string) => {
   logger.info(
-    `[S3] Set bucket website with IndexDocument: "index.html" & ErrorDocument: "index.html"...`
+    `[S3] Set bucket website with IndexDocument: "index.html" & ErrorDocument: "index.html" to "${bucketName}"...`
   );
   return s3
     .putBucketWebsite({
@@ -99,7 +101,7 @@ export const setBucketWebsite = (bucketName: string) => {
 };
 
 export const setBucketPolicy = (bucketName: string) => {
-  logger.info(`[S3] Allow public read...`);
+  logger.info(`[S3] Allow public read to "${bucketName}"...`);
   return s3
     .putBucketPolicy({
       Bucket: bucketName,

@@ -80,7 +80,9 @@ export const createCloudFrontDistribution = async (
   );
 
   logger.info(
-    `[CloudFront] Creating Cloudfront distribution with bucket website origin...`
+    `[CloudFront] Creating Cloudfront distribution with origin "${getS3DomainName(
+      domainName
+    )}"...`
   );
   const { Distribution } = await cloudfront
     .createDistributionWithTags({

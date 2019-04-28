@@ -13,20 +13,15 @@ import {
   clearCloudfrontCache
 } from "./cloudfront";
 import { findHostedZone, createHostedZone, updateRecord } from "./route53";
+import { logger } from "./logger";
 
 interface DistributionInfo {
   Id: string;
   DomainName: string;
 }
 
-export const deploy = async (
-  domainName: string,
-  folder: string,
-  hostedZoneName: string
-) => {
-  console.log(
-    `Deploying "${folder}" on "${domainName}" (zone ${hostedZoneName})...`
-  );
+export const deploy = async (domainName: string, folder: string) => {
+  logger.info(`Deploying "${folder}" on "${domainName}"...`);
 
   if (!existsSync(folder)) {
     throw new Error(`folder "${folder}" not found`);

@@ -18,7 +18,8 @@
   },
   "dependencies": {
     "aws-sdk": "^2.444.0",
-    "mime-types": "^2.1.24"
+    "mime-types": "^2.1.24",
+    "yargs": "^13.2.2"
   },
   "devDependencies": {
     "@babel/cli": "^7.4.4",
@@ -32,6 +33,7 @@
     "@types/mime-types": "^2.1.0",
     "@types/node": "^11.13.8",
     "@types/rimraf": "^2.0.2",
+    "@types/yargs": "^13.0.0",
     "husky": "^2.1.0",
     "jest": "^24.7.1",
     "rimraf": "^2.6.3",
