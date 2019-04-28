@@ -10,6 +10,12 @@ const argv = yargs
     describe:
       'The domain name on which the SPA will be accessible. For example "app.example.com"'
   })
+  .option("wait", {
+    type: "boolean",
+    default: false,
+    describe:
+      "Wait for CloudFront distribution to be deployed & cache invalidation to be completed"
+  })
   .option("directory", {
     type: "string",
     default: "build",
@@ -17,7 +23,7 @@ const argv = yargs
       "The directory where the static files have been generated. It must contain an index.html file"
   }).argv;
 
-deploy(argv.domainName, argv.directory)
+deploy(argv.domainName, argv.directory, argv.wait)
   .then(() => {
     logger.info("✅ done!");
   })

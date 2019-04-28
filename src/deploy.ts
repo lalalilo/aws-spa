@@ -10,7 +10,7 @@ import { getCertificateARN, createCertificate } from "./acm";
 import {
   findCloudfrontDistribution,
   createCloudFrontDistribution,
-  clearCloudfrontCache
+  invalidateCloudfrontCache
 } from "./cloudfront";
 import { findHostedZone, createHostedZone, updateRecord } from "./route53";
 import { logger } from "./logger";
@@ -20,7 +20,11 @@ interface DistributionInfo {
   DomainName: string;
 }
 
-export const deploy = async (domainName: string, folder: string) => {
+export const deploy = async (
+  domainName: string,
+  folder: string,
+  wait: boolean
+) => {
   logger.info(`Deploying "${folder}" on "${domainName}"...`);
 
   if (!existsSync(folder)) {
@@ -42,12 +46,14 @@ export const deploy = async (domainName: string, folder: string) => {
   }
 
   let distribution: DistributionInfo | null = await findCloudfrontDistribution(
-    domainName
+    domainName,
+    wait
   );
   if (!distribution) {
     distribution = await createCloudFrontDistribution(
       domainName,
-      certificateArn
+      certificateArn,
+      wait
     );
   }
 
@@ -58,5 +64,5 @@ export const deploy = async (domainName: string, folder: string) => {
   await updateRecord(hostedZone.Id, domainName, distribution.DomainName);
 
   await syncToS3(folder, domainName);
-  await clearCloudfrontCache(distribution.Id);
+  await invalidateCloudfrontCache(distribution.Id, wait);
 };

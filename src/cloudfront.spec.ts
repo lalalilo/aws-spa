@@ -2,7 +2,7 @@ import { cloudfront } from "./aws-services";
 import { awsResolve } from "./test-helper";
 import {
   findCloudfrontDistribution,
-  clearCloudfrontCache,
+  invalidateCloudfrontCache,
   identifyingTag,
   createCloudFrontDistribution
 } from "./cloudfront";
@@ -78,7 +78,7 @@ describe("cloudfront", () => {
       expect(distribution.Id).toEqual("HELLO");
     });
 
-    it("should for distribution if distribution is not deployed", async () => {
+    it("should wait for distribution if distribution is not deployed", async () => {
       listDistributionMock.mockReturnValue(
         awsResolve({
           DistributionList: {
@@ -108,21 +108,23 @@ describe("cloudfront", () => {
       );
       waitForMock.mockReturnValue(awsResolve());
 
-      await findCloudfrontDistribution("hello.example.com");
+      await findCloudfrontDistribution("hello.example.com", true);
       expect(waitForMock).toHaveBeenCalledTimes(1);
     });
   });
 
-  describe("clearCloudfrontCache", () => {
+  describe("invalidateCloudfrontCache", () => {
     const createInvalidationMock = jest.spyOn(cloudfront, "createInvalidation");
+    const waitForMock = jest.spyOn(cloudfront, "waitFor");
 
     afterEach(() => {
       createInvalidationMock.mockReset();
+      waitForMock.mockReset();
     });
 
     it("should invalidate index.html", async () => {
       createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }));
-      await clearCloudfrontCache("some-distribution-id");
+      await invalidateCloudfrontCache("some-distribution-id");
 
       expect(createInvalidationMock).toHaveBeenCalledTimes(1);
       const invalidationParams: any = createInvalidationMock.mock.calls[0][0];
@@ -130,6 +132,14 @@ describe("cloudfront", () => {
       expect(invalidationParams.InvalidationBatch.Paths.Items[0]).toEqual(
         "/index.html"
       );
+    });
+
+    it("should wait for invalidate if wait flag is true", async () => {
+      createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }));
+      waitForMock.mockReturnValue(awsResolve());
+      await invalidateCloudfrontCache("some-distribution-id", true);
+      expect(waitForMock).toHaveBeenCalledTimes(1);
+      expect(waitForMock.mock.calls[0][0]).toEqual("invalidationCompleted");
     });
   });
 

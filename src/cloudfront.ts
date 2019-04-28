@@ -7,7 +7,10 @@ import {
   Tag
 } from "aws-sdk/clients/cloudfront";
 
-export const findCloudfrontDistribution = async (originBucketName: string) => {
+export const findCloudfrontDistribution = async (
+  originBucketName: string,
+  wait: boolean = false
+) => {
   const distributions = await getAll<DistributionSummary>(
     async (nextMarker, page) => {
       logger.info(
@@ -59,11 +62,11 @@ export const findCloudfrontDistribution = async (originBucketName: string) => {
         }" does not seem to have been created by aws-spa. You should delete it...`
       );
     }
-    // if (distribution.Status === "In Progress") {
-    //   await cloudfront
-    //     .waitFor("distributionDeployed", { Id: distribution.Id })
-    //     .promise();
-    // }
+    if (wait && distribution.Status === "In Progress") {
+      await cloudfront
+        .waitFor("distributionDeployed", { Id: distribution.Id })
+        .promise();
+    }
     return distribution;
   }
 
@@ -72,7 +75,8 @@ export const findCloudfrontDistribution = async (originBucketName: string) => {
 
 export const createCloudFrontDistribution = async (
   domainName: string,
-  sslCertificateARN: string
+  sslCertificateARN: string,
+  wait: boolean = false
 ) => {
   const distributionConfig = getDistributionConfig(
     domainName,
@@ -99,12 +103,14 @@ export const createCloudFrontDistribution = async (
     throw new Error("[CloudFront] Could not create distribution");
   }
 
-  // logger.info(
-  //   `[CloudFront] Waiting for distribution to be available. This step might takes up to 25 minutes...`
-  // );
-  // await cloudfront
-  //   .waitFor("distributionDeployed", { Id: Distribution.Id })
-  //   .promise();
+  if (wait) {
+    logger.info(
+      `[CloudFront] Waiting for distribution to be available. This step might takes up to 25 minutes...`
+    );
+    await cloudfront
+      .waitFor("distributionDeployed", { Id: Distribution.Id })
+      .promise();
+  }
   return Distribution;
 };
 
@@ -171,8 +177,11 @@ const getS3DomainName = (domainName: string) =>
 const getOriginId = (domainName: string) =>
   `S3-Website-${getS3DomainName(domainName)}`;
 
-export const clearCloudfrontCache = async (distributionId: string) => {
-  logger.info("[CloudFront] Creating CloudFront invalidation...");
+export const invalidateCloudfrontCache = async (
+  distributionId: string,
+  wait: boolean = false
+) => {
+  logger.info("[CloudFront] Creating invalidation...");
   const { Invalidation } = await cloudfront
     .createInvalidation({
       DistributionId: distributionId,
@@ -190,10 +199,17 @@ export const clearCloudfrontCache = async (distributionId: string) => {
     return;
   }
 
-  // cloudfront.waitFor('invalidationCompleted', {
-  //   DistributionId: distributionId,
-  //   Id: Invalidation.Id
-  // });
+  if (wait) {
+    logger.info(
+      "[CloudFront] Waiting for invalidation to be completed (can take up to 10 minutes)..."
+    );
+    await cloudfront
+      .waitFor("invalidationCompleted", {
+        DistributionId: distributionId,
+        Id: Invalidation.Id
+      })
+      .promise();
+  }
 };
 
 export const identifyingTag: Tag = {
