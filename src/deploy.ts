@@ -12,6 +12,7 @@ import {
   createCloudFrontDistribution,
   clearCloudfrontCache
 } from "./cloudfront";
+import { findHostedZone, createHostedZone, updateRecord } from "./route53";
 
 interface DistributionInfo {
   Id: string;
@@ -55,7 +56,12 @@ export const deploy = async (
     );
   }
 
-  console.log(`Uploading "${folder}" content...`);
+  let hostedZone = await findHostedZone(domainName);
+  if (!hostedZone) {
+    hostedZone = await createHostedZone(domainName);
+  }
+  await updateRecord(hostedZone.Id, domainName, distribution.DomainName);
+
   await syncToS3(folder, domainName);
   await clearCloudfrontCache(distribution.Id);
 };
