@@ -1,4 +1,4 @@
-import { S3, ACM, CloudFront } from "aws-sdk";
+import { S3, ACM, CloudFront, Route53 } from "aws-sdk";
 
 // Bucket region must be fixed so that website endpoint is fixe
 // https://docs.aws.amazon.com/fr_fr/general/latest/gr/rande.html#s3_website_region_endpoints
@@ -13,6 +13,8 @@ export const s3 = new S3({
 export const acm = new ACM({ region: "us-east-1" });
 
 export const cloudfront = new CloudFront();
+
+export const route53 = new Route53();
 
 // S3 API does not seem to expose this data
 // https://docs.aws.amazon.com/fr_fr/general/latest/gr/rande.html#s3_website_region_endpoints
