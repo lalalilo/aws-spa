@@ -42,14 +42,16 @@ export const findHostedZone = async (domainName: string) => {
   return null;
 };
 
-export const createHostedZone = (domainName: string) => {
+export const createHostedZone = async (domainName: string) => {
   logger.info(`[route53] Creating hosted zone "${domainName}"...`);
-  return route53
+  const { HostedZone } = await route53
     .createHostedZone({
       Name: domainName,
       CallerReference: `aws-spa-${Date.now()}`
     })
     .promise();
+
+  return HostedZone;
 };
 
 export const updateRecord = async (

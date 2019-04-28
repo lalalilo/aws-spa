@@ -10,7 +10,9 @@ import {
 export const findCloudfrontDistribution = async (originBucketName: string) => {
   const distributions = await getAll<DistributionSummary>(
     async (nextMarker, page) => {
-      logger.info(`searching cloudfront distribution (page ${page})...`);
+      logger.info(
+        `[CloudFront] searching cloudfront distribution (page ${page})...`
+      );
 
       const { DistributionList } = await cloudfront
         .listDistributions({
@@ -37,7 +39,7 @@ export const findCloudfrontDistribution = async (originBucketName: string) => {
       continue;
     }
 
-    logger.info(`cloudfront distribution found: ${distribution.Id}`);
+    logger.info(`[CloudFront] Distribution found: ${distribution.Id}`);
 
     const { Tags } = await cloudfront
       .listTagsForResource({ Resource: distribution.ARN })
@@ -52,16 +54,16 @@ export const findCloudfrontDistribution = async (originBucketName: string) => {
       )
     ) {
       throw new Error(
-        `Distribution "${
+        `[CloudFront] Distribution "${
           distribution.Id
         }" does not seem to have been created by aws-spa. You should delete it...`
       );
     }
-    if (distribution.Status === "In Progress") {
-      await cloudfront
-        .waitFor("distributionDeployed", { Id: distribution.Id })
-        .promise();
-    }
+    // if (distribution.Status === "In Progress") {
+    //   await cloudfront
+    //     .waitFor("distributionDeployed", { Id: distribution.Id })
+    //     .promise();
+    // }
     return distribution;
   }
 
@@ -92,7 +94,7 @@ export const createCloudFrontDistribution = async (
     .promise();
 
   if (!Distribution) {
-    throw new Error("Could not create cloudfront distribution");
+    throw new Error("[CloudFront] Could not create distribution");
   }
 
   // logger.info(
@@ -168,7 +170,7 @@ const getOriginId = (domainName: string) =>
   `S3-Website-${getS3DomainName(domainName)}`;
 
 export const clearCloudfrontCache = async (distributionId: string) => {
-  logger.info("Creating CloudFront invalidation...");
+  logger.info("[CloudFront] Creating CloudFront invalidation...");
   const { Invalidation } = await cloudfront
     .createInvalidation({
       DistributionId: distributionId,

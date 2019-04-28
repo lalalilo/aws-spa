@@ -8,20 +8,20 @@ import { logger } from "./logger";
 
 export const doesS3BucketExists = async (bucketName: string) => {
   try {
-    logger.info(`Looking for bucket "${bucketName}"...`);
+    logger.info(`[S3] Looking for bucket "${bucketName}"...`);
     await s3.headBucket({ Bucket: bucketName }).promise();
   } catch (error) {
     if (error.statusCode === 404) {
-      logger.info(`Bucket "${bucketName}" not found...`);
+      logger.info(`[S3] Bucket "${bucketName}" not found...`);
       return false;
     }
 
     throw error;
   }
 
-  logger.info(`Bucket "${bucketName}" exists. Checking tags...`);
+  logger.info(`[S3] Bucket "${bucketName}" exists. Checking tags...`);
 
-  const errorMessage = `Bucket "${bucketName}" does not seem to have been created by aws-spa. You can either delete the existing bucket or make sure it is well configured and add the tag "${
+  const errorMessage = `[S3] Bucket "${bucketName}" does not seem to have been created by aws-spa. You can either delete the existing bucket or make sure it is well configured and add the tag "${
     identifyingTag.Key
   }:${identifyingTag.Value}"`;
 
@@ -35,7 +35,7 @@ export const doesS3BucketExists = async (bucketName: string) => {
         tag.Value === identifyingTag.Value
       ) {
         logger.info(
-          `Tag "${identifyingTag.Key}:${identifyingTag.Value}" found`
+          `[S3] Tag "${identifyingTag.Key}:${identifyingTag.Value}" found`
         );
         return true;
       }
@@ -60,7 +60,7 @@ export const createBucket = async (bucketName: string) => {
   } catch (error) {
     if (error.statusCode === 409) {
       throw new Error(
-        "It seems that a bucket already exists but in an unsupported region... You should delete it first."
+        "[S3] It seems that a bucket already exists but in an unsupported region... You should delete it first."
       );
     }
     throw error;
@@ -137,6 +137,8 @@ export const indexCacheControl =
 const nonIndexCacheControl = "max-age=31536000";
 
 export const syncToS3 = function(folder: string, bucketName: string) {
+  logger.info(`[S3] Uploading "${folder}" content...`);
+
   const filesToUpload = readRecursively(folder);
   return Promise.all(
     filesToUpload.map(file => {

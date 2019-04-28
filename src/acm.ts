@@ -9,7 +9,7 @@ export const getCertificateARN = async (domainName: string) => {
   const certificates = await getAll<CertificateSummary>(
     async (nextMarker, page) => {
       logger.info(
-        `Looking for a certificate matching "${domainName}" in zone "us-east-1" (page ${page})...`
+        `[ACM] Looking for a certificate matching "${domainName}" in zone "us-east-1" (page ${page})...`
       );
 
       const { CertificateSummaryList, NextToken } = await acm
@@ -37,7 +37,7 @@ export const getCertificateARN = async (domainName: string) => {
     if (domainNameMatch(Certificate.DomainName, domainName)) {
       if (Certificate.Status !== "ISSUED") {
         logger.info(
-          `Certificate with domain name "${
+          `[ACM] Certificate with domain name "${
             Certificate.DomainName
           }" is matching but its status is "${Certificate.Status}"`
         );
@@ -48,7 +48,9 @@ export const getCertificateARN = async (domainName: string) => {
         continue;
       }
       logger.info(
-        `Certificate with domain name "${Certificate.DomainName}" is matching`
+        `[ACM] Certificate with domain name "${
+          Certificate.DomainName
+        }" is matching`
       );
       return certificate.CertificateArn as string;
     }
@@ -61,7 +63,7 @@ export const getCertificateARN = async (domainName: string) => {
       if (domainNameMatch(alternativeName, domainName)) {
         if (Certificate.Status !== "ISSUED") {
           logger.info(
-            `Certificate with alternative name "${alternativeName}" (domain name "${
+            `[ACM] Certificate with alternative name "${alternativeName}" (domain name "${
               Certificate.DomainName
             }") is matching but its status is "${Certificate.Status}"`
           );
@@ -71,7 +73,7 @@ export const getCertificateARN = async (domainName: string) => {
           continue;
         }
         logger.info(
-          `Alternative name "${alternativeName}" of certificate "${
+          `[ACM] Alternative name "${alternativeName}" of certificate "${
             Certificate.DomainName
           }" is matching`
         );
@@ -83,6 +85,10 @@ export const getCertificateARN = async (domainName: string) => {
   if (!waitFor) {
     return null;
   }
+
+  logger.info(
+    `[ACM] Waiting for certificate validation: the domain owner of "${domainName}" should have received an email...`
+  );
   await acm.waitFor("certificateValidated", { CertificateArn: waitFor });
   return waitFor;
 };
@@ -91,7 +97,7 @@ export const createCertificate = async (
   domainName: string,
   validationMethod: ValidationMethod = "EMAIL"
 ) => {
-  logger.info(`Requesting a certificate for "${domainName}"...`);
+  logger.info(`[ACM] Requesting a certificate for "${domainName}"...`);
   const { CertificateArn } = await acm
     .requestCertificate({
       DomainName: domainName,
@@ -104,7 +110,7 @@ export const createCertificate = async (
   }
 
   logger.info(
-    `Request sent. Waiting for certificate validation: the domain owner of "${domainName}" should have received an email...`
+    `[ACM] Request sent. Waiting for certificate validation: the domain owner of "${domainName}" should have received an email...`
   );
   await acm.waitFor("certificateValidated", { CertificateArn });
   return CertificateArn;
