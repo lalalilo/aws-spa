@@ -25,7 +25,7 @@ export const deploy = async (
   folder: string,
   wait: boolean
 ) => {
-  logger.info(`Deploying "${folder}" on "${domainName}"...`);
+  logger.info(`✨ Deploying "${folder}" on "${domainName}"...`);
 
   if (!existsSync(folder)) {
     throw new Error(`folder "${folder}" not found`);

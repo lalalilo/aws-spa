@@ -14,7 +14,7 @@ export const findCloudfrontDistribution = async (
   const distributions = await getAll<DistributionSummary>(
     async (nextMarker, page) => {
       logger.info(
-        `[CloudFront] searching cloudfront distribution (page ${page})...`
+        `[CloudFront] 🔍 searching cloudfront distribution (page ${page})...`
       );
 
       const { DistributionList } = await cloudfront
@@ -42,7 +42,7 @@ export const findCloudfrontDistribution = async (
       continue;
     }
 
-    logger.info(`[CloudFront] Distribution found: ${distribution.Id}`);
+    logger.info(`[CloudFront] 👍 Distribution found: ${distribution.Id}`);
 
     const { Tags } = await cloudfront
       .listTagsForResource({ Resource: distribution.ARN })
@@ -63,6 +63,9 @@ export const findCloudfrontDistribution = async (
       );
     }
     if (wait && distribution.Status === "In Progress") {
+      logger.info(
+        `[CloudFront] ⏱ Waiting for distribution to be available. This step might takes up to 25 minutes...`
+      );
       await cloudfront
         .waitFor("distributionDeployed", { Id: distribution.Id })
         .promise();
@@ -84,7 +87,7 @@ export const createCloudFrontDistribution = async (
   );
 
   logger.info(
-    `[CloudFront] Creating Cloudfront distribution with origin "${getS3DomainName(
+    `[CloudFront] ✏️ Creating Cloudfront distribution with origin "${getS3DomainName(
       domainName
     )}"...`
   );
@@ -105,7 +108,7 @@ export const createCloudFrontDistribution = async (
 
   if (wait) {
     logger.info(
-      `[CloudFront] Waiting for distribution to be available. This step might takes up to 25 minutes...`
+      `[CloudFront] ⏱ Waiting for distribution to be available. This step might takes up to 25 minutes...`
     );
     await cloudfront
       .waitFor("distributionDeployed", { Id: Distribution.Id })
@@ -181,7 +184,7 @@ export const invalidateCloudfrontCache = async (
   distributionId: string,
   wait: boolean = false
 ) => {
-  logger.info("[CloudFront] Creating invalidation...");
+  logger.info("[CloudFront] ✏️ Creating invalidation...");
   const { Invalidation } = await cloudfront
     .createInvalidation({
       DistributionId: distributionId,
@@ -201,7 +204,7 @@ export const invalidateCloudfrontCache = async (
 
   if (wait) {
     logger.info(
-      "[CloudFront] Waiting for invalidation to be completed (can take up to 10 minutes)..."
+      "[CloudFront] ⏱ Waiting for invalidation to be completed (can take up to 10 minutes)..."
     );
     await cloudfront
       .waitFor("invalidationCompleted", {

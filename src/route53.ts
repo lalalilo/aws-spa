@@ -5,11 +5,11 @@ import { HostedZone } from "aws-sdk/clients/route53";
 
 export const findHostedZone = async (domainName: string) => {
   logger.info(
-    `[route53] Looking for a hosted zone matching "${domainName}"...`
+    `[route53] 🔍 Looking for a hosted zone matching "${domainName}"...`
   );
 
   const hostedZones = await getAll<HostedZone>(async (nextMarker, page) => {
-    logger.info(`[route53] List hosted zones (page ${page})...`);
+    logger.info(`[route53] 🔍 List hosted zones (page ${page})...`);
     const { HostedZones, NextMarker } = await route53
       .listHostedZones({ Marker: nextMarker })
       .promise();
@@ -22,7 +22,7 @@ export const findHostedZone = async (domainName: string) => {
 
   if (matchingHostedZones.length === 1) {
     logger.info(
-      `[route53] Found Hosted zone: "${matchingHostedZones[0].Name}"`
+      `[route53] 👍 Found Hosted zone: "${matchingHostedZones[0].Name}"`
     );
     return matchingHostedZones[0];
   }
@@ -38,12 +38,12 @@ export const findHostedZone = async (domainName: string) => {
     return matchingHostedZones[0];
   }
 
-  logger.info(`[route53] No hosted zone found`);
+  logger.info(`[route53] 🧐 No hosted zone found`);
   return null;
 };
 
 export const createHostedZone = async (domainName: string) => {
-  logger.info(`[route53] Creating hosted zone "${domainName}"...`);
+  logger.info(`[route53] ✏️ Creating hosted zone "${domainName}"...`);
   const { HostedZone } = await route53
     .createHostedZone({
       Name: domainName,
@@ -60,7 +60,7 @@ export const updateRecord = async (
   cloudfrontDomainName: string
 ) => {
   logger.info(
-    `[route53] Upserting CNAME: "${domainName}." → ${cloudfrontDomainName}`
+    `[route53] ✏️ Upserting CNAME: "${domainName}." → ${cloudfrontDomainName}...`
   );
   await route53
     .changeResourceRecordSets({
