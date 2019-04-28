@@ -8,8 +8,12 @@
   "license": "MIT",
   "scripts": {
     "build": "babel src -d lib --extensions '.ts'",
+    "prebuild": "yarn check-types",
     "check-types": "tsc",
     "test": "jest"
+  },
+  "bin": {
+    "aws-spa": "./lib/cli.js"
   },
   "husky": {
     "hooks": {
