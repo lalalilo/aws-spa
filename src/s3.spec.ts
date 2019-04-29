@@ -39,8 +39,8 @@ describe("s3", () => {
       putBucketTaggingSpy.mockReturnValue(awsResolve());
       await createBucket("some-bucket");
       expect(logSpy).toHaveBeenCalledTimes(2);
-      expect(logSpy.mock.calls[0][0]).toContain('[S3] Creating "some-bucket"');
-      expect(logSpy.mock.calls[1][0]).toContain("[S3] Add tag");
+      expect(logSpy.mock.calls[0][0]).toContain('Creating "some-bucket"');
+      expect(logSpy.mock.calls[1][0]).toContain("Add tag");
     });
 
     it("should call s3.createBucket with bucket name", async () => {
@@ -112,7 +112,7 @@ describe("s3", () => {
       putBucketWebsiteSpy.mockReturnValue(awsResolve());
       await setBucketWebsite("some-bucket");
       expect(logSpy).toHaveBeenCalledTimes(1);
-      expect(logSpy.mock.calls[0][0]).toContain("[S3] Set bucket website");
+      expect(logSpy.mock.calls[0][0]).toContain("Set bucket website");
     });
 
     it("should set bucket website", async () => {
@@ -148,7 +148,7 @@ describe("s3", () => {
       putBucketPolicySpy.mockReturnValue(awsResolve());
       await setBucketPolicy("some-bucket");
       expect(logSpy).toHaveBeenCalledTimes(1);
-      expect(logSpy.mock.calls[0][0]).toContain("[S3] Allow public read");
+      expect(logSpy.mock.calls[0][0]).toContain("Allow public read");
     });
 
     it("should set bucket policy", async () => {

@@ -2,6 +2,8 @@
 
 A no-brainer script to deploy a single page app on AWS.
 
+[![CircleCI](https://circleci.com/gh/nicgirault/aws-spa.svg?style=svg)](https://circleci.com/gh/nicgirault/aws-spa)
+
 ## Features
 
 - Create AWS Bucket & CloudFront distribution & Route 53 record & ACM certificate and configure it

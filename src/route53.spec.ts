@@ -58,7 +58,7 @@ describe("route53", () => {
     });
 
     it("should create a hosted zone", async () => {
-      createHostedZoneMock.mockReturnValue(awsResolve());
+      createHostedZoneMock.mockReturnValue(awsResolve({ HostedZone: {} }));
 
       await createHostedZone("hello.example.com");
       expect(createHostedZoneMock).toHaveBeenCalledTimes(1);

@@ -35,7 +35,7 @@ export const doesS3BucketExists = async (bucketName: string) => {
         tag.Value === identifyingTag.Value
       ) {
         logger.info(
-          `[S3] Tag 👍 "${identifyingTag.Key}:${identifyingTag.Value}" found`
+          `[S3] 👍 Tag "${identifyingTag.Key}:${identifyingTag.Value}" found`
         );
         return true;
       }
