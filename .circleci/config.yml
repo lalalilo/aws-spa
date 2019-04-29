@@ -30,4 +30,8 @@ jobs:
 
       - run:
           name: Run tests
-          command: yarn test
+          command: yarn test --coverage
+
+      - run:
+          name: Code coverage
+          command: npx codecov

@@ -38,6 +38,7 @@
     "@types/node": "^11.13.8",
     "@types/rimraf": "^2.0.2",
     "@types/yargs": "^13.0.0",
+    "codecov": "^3.3.0",
     "husky": "^2.1.0",
     "jest": "^24.7.1",
     "rimraf": "^2.6.3",
