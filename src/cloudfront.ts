@@ -1,3 +1,4 @@
+import { prompt } from "inquirer";
 import { cloudfront, bucketRegion, websiteEndpoint } from "./aws-services";
 import { getAll } from "./aws-helper";
 import { logger } from "./logger";
@@ -7,9 +8,14 @@ import {
   Tag
 } from "aws-sdk/clients/cloudfront";
 
-export const findCloudfrontDistribution = async (
-  originBucketName: string,
-  wait: boolean = false
+export interface DistributionIdentificationDetail {
+  Id: string;
+  ARN: string;
+  DomainName: string;
+}
+
+export const findDeployedCloudfrontDistribution = async (
+  originBucketName: string
 ) => {
   const distributions = await getAll<DistributionSummary>(
     async (nextMarker, page) => {
@@ -34,71 +40,124 @@ export const findCloudfrontDistribution = async (
     }
   );
 
-  for (const distribution of distributions) {
-    if (
-      !distribution.Origins.Items[0] ||
-      distribution.Origins.Items[0].Id !== getOriginId(originBucketName)
-    ) {
-      continue;
-    }
+  const distribution = distributions.find(
+    _distribution =>
+      _distribution.Origins.Items[0] &&
+      _distribution.Origins.Items[0].Id === getOriginId(originBucketName)
+  );
 
-    logger.info(`[CloudFront] 👍 Distribution found: ${distribution.Id}`);
-
-    const { Tags } = await cloudfront
-      .listTagsForResource({ Resource: distribution.ARN })
-      .promise();
-
-    if (
-      !Tags ||
-      !Tags.Items ||
-      !Tags.Items.find(
-        tag =>
-          tag.Key === identifyingTag.Key && tag.Value === identifyingTag.Value
-      )
-    ) {
-      throw new Error(
-        `[CloudFront] Distribution "${
-          distribution.Id
-        }" does not seem to have been created by aws-spa. You should delete it...`
-      );
-    }
-    if (wait && distribution.Status === "In Progress") {
-      logger.info(
-        `[CloudFront] ⏱ Waiting for distribution to be available. This step might takes up to 25 minutes...`
-      );
-      await cloudfront
-        .waitFor("distributionDeployed", { Id: distribution.Id })
-        .promise();
-    }
-    return distribution;
+  if (!distribution) {
+    logger.info(`[CloudFront] 😬 No matching distribution`);
+    return null;
   }
 
-  return null;
+  logger.info(`[CloudFront] 👍 Distribution found: ${distribution.Id}`);
+
+  if (distribution.Status === "In Progress") {
+    logger.info(
+      `[CloudFront] ⏱ Waiting for distribution to be deployed. This step might takes up to 25 minutes...`
+    );
+    await cloudfront
+      .waitFor("distributionDeployed", { Id: distribution.Id })
+      .promise();
+  }
+  return distribution;
+};
+
+export const confirmDistributionManagement = async (
+  distribution: DistributionIdentificationDetail
+) => {
+  logger.info(
+    `[CloudFront] 🔍 Checking that tag "${identifyingTag.Key}:${
+      identifyingTag.Value
+    }" exists on distribution "${distribution.Id}"...`
+  );
+
+  const { Tags } = await cloudfront
+    .listTagsForResource({ Resource: distribution.ARN })
+    .promise();
+
+  if (
+    Tags &&
+    Tags.Items &&
+    Tags.Items.find(
+      tag =>
+        tag.Key === identifyingTag.Key && tag.Value === identifyingTag.Value
+    )
+  ) {
+    return true;
+  }
+
+  const { continueUpdate } = await prompt([
+    {
+      type: "confirm",
+      name: "continueUpdate",
+      message: `[CloudFront] Distribution "${
+        distribution.Id
+      }" is not yet managed by aws-spa. Would you like it to be managed by aws-spa?`,
+      default: false
+    }
+  ]);
+
+  if (continueUpdate) {
+    return true;
+  }
+
+  throw new Error(
+    "You can use another domain name or delete the distribution..."
+  );
+};
+
+export const updateCloudFrontDistribution = async (
+  originBucketName: string,
+  sslCertificateARN: string,
+  distribution: DistributionIdentificationDetail
+) => {
+  logger.info(
+    `[CloudFront] ✏️ Updating "${distribution.Id}" distribution config...`
+  );
+  await cloudfront
+    .updateDistribution({
+      DistributionConfig: getDistributionConfig(
+        originBucketName,
+        sslCertificateARN
+      ),
+      Id: distribution.Id
+    })
+    .promise();
+};
+
+export const tagCloudFrontDistribution = async (
+  distribution: DistributionIdentificationDetail
+) => {
+  logger.info(
+    `[CloudFront] ✏️ Tagging "${distribution.Id}" bucket with "${
+      identifyingTag.Key
+    }:${identifyingTag.Value}"...`
+  );
+  await cloudfront
+    .tagResource({
+      Resource: distribution.ARN,
+      Tags: {
+        Items: [identifyingTag]
+      }
+    })
+    .promise();
 };
 
 export const createCloudFrontDistribution = async (
   domainName: string,
-  sslCertificateARN: string,
-  wait: boolean = false
-) => {
-  const distributionConfig = getDistributionConfig(
-    domainName,
-    sslCertificateARN
-  );
-
+  sslCertificateARN: string
+): Promise<DistributionIdentificationDetail> => {
   logger.info(
     `[CloudFront] ✏️ Creating Cloudfront distribution with origin "${getS3DomainName(
       domainName
     )}"...`
   );
+
   const { Distribution } = await cloudfront
-    .createDistributionWithTags({
-      DistributionConfigWithTags: {
-        DistributionConfig: distributionConfig,
-        Tags: {
-          Items: [identifyingTag]
-        }
-      }
+    .createDistribution({
+      DistributionConfig: getDistributionConfig(domainName, sslCertificateARN)
     })
     .promise();
 
@@ -106,14 +165,12 @@ export const createCloudFrontDistribution = async (
     throw new Error("[CloudFront] Could not create distribution");
   }
 
-  if (wait) {
-    logger.info(
-      `[CloudFront] ⏱ Waiting for distribution to be available. This step might takes up to 25 minutes...`
-    );
-    await cloudfront
-      .waitFor("distributionDeployed", { Id: Distribution.Id })
-      .promise();
-  }
+  logger.info(
+    `[CloudFront] ⏱ Waiting for distribution to be available. This step might takes up to 25 minutes...`
+  );
+  await cloudfront
+    .waitFor("distributionDeployed", { Id: Distribution.Id })
+    .promise();
   return Distribution;
 };
 
@@ -216,6 +273,6 @@ export const invalidateCloudfrontCache = async (
 };
 
 export const identifyingTag: Tag = {
-  Key: "created-by",
-  Value: "aws-spa"
+  Key: "managed-by-aws-spa",
+  Value: "v1"
 };

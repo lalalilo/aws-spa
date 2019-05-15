@@ -1,6 +1,8 @@
 # aws-spa
 
-A no-brainer script to deploy a single page app on AWS.
+Deploy a single page app on AWS in one command.
+
+Configuring the deployment of a single page app is harder than it should be. Most SPA configuration are very similar. aws-spa embodies this idea. It is meant to handle all the quirks associated with SPA configuration.
 
 [![CircleCI](https://circleci.com/gh/nicgirault/aws-spa.svg?style=svg)](https://circleci.com/gh/nicgirault/aws-spa) [![codecov](https://codecov.io/gh/nicgirault/aws-spa/branch/master/graph/badge.svg)](https://codecov.io/gh/nicgirault/aws-spa)
 
@@ -11,7 +13,7 @@ A no-brainer script to deploy a single page app on AWS.
 - Smart HTTP cache
 - Invalidate CloudFront after deployment
 
-This script is idempotent.
+This script is idempotent. aws-spa is aware of the resources it is managing thanks to tags, therefore aws-spa can safely manage existing S3 bucket & Cloudfront distribution & non-empty hosted zones. No resource will be updated without a prompt of your consent if there is no identifying tag associated to the resource.
 
 Here is a quick overview of what it is doing for the first deployment:
 

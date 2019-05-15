@@ -1,6 +1,7 @@
 import { Tag } from "aws-sdk/clients/s3";
 import { createReadStream } from "fs";
 import { lookup } from "mime-types";
+import { prompt } from "inquirer";
 
 import { s3 } from "./aws-services";
 import { readRecursively } from "./fs-helper";
@@ -19,34 +20,8 @@ export const doesS3BucketExists = async (bucketName: string) => {
     throw error;
   }
 
-  logger.info(`[S3] 🔍 Bucket "${bucketName}" exists. Checking tags...`);
-
-  const errorMessage = `[S3] Bucket "${bucketName}" does not seem to have been created by aws-spa. You can either delete the existing bucket or make sure it is well configured and add the tag "${
-    identifyingTag.Key
-  }:${identifyingTag.Value}"`;
-
-  try {
-    const { TagSet } = await s3
-      .getBucketTagging({ Bucket: bucketName })
-      .promise();
-    for (const tag of TagSet) {
-      if (
-        tag.Key === identifyingTag.Key &&
-        tag.Value === identifyingTag.Value
-      ) {
-        logger.info(
-          `[S3] 👍 Tag "${identifyingTag.Key}:${identifyingTag.Value}" found`
-        );
-        return true;
-      }
-    }
-    throw new Error(errorMessage);
-  } catch (error) {
-    if (error.statusCode === 404) {
-      throw new Error(errorMessage);
-    }
-    throw error;
-  }
+  logger.info(`[S3] 🔍 Bucket "${bucketName}" found`);
+  return true;
 };
 
 export const createBucket = async (bucketName: string) => {
@@ -65,11 +40,55 @@ export const createBucket = async (bucketName: string) => {
     }
     throw error;
   }
+};
 
+export const confirmBucketManagement = async (bucketName: string) => {
   logger.info(
-    `[S3] ✏️ Add tag "${identifyingTag.Key}:${
+    `[S3] 🔍 Checking that tag "${identifyingTag.Key}:${
       identifyingTag.Value
-    }" to "${bucketName}"...`
+    }" exists on bucket "${bucketName}"...`
+  );
+  try {
+    const { TagSet } = await s3
+      .getBucketTagging({ Bucket: bucketName })
+      .promise();
+
+    const tag = TagSet.find(
+      _tag =>
+        _tag.Key === identifyingTag.Key && _tag.Value === identifyingTag.Value
+    );
+
+    if (tag) {
+      logger.info(
+        `[S3] 👍 Tag "${identifyingTag.Key}:${identifyingTag.Value}" found`
+      );
+      return true;
+    }
+  } catch (error) {
+    if (error.statusCode !== 404) {
+      throw error;
+    }
+  }
+
+  const { continueUpdate } = await prompt([
+    {
+      type: "confirm",
+      name: "continueUpdate",
+      message: `[S3] Bucket "${bucketName}" is not yet managed by aws-spa. Would you like it to be modified (public access & website config) & managed by aws-spa?`,
+      default: false
+    }
+  ]);
+  if (continueUpdate) {
+    return true;
+  }
+  throw new Error("You can use another domain name or delete the S3 bucket...");
+};
+
+export const tagBucket = async (bucketName: string) => {
+  logger.info(
+    `[S3] ✏️ Tagging "${bucketName}" bucket with "${identifyingTag.Key}:${
+      identifyingTag.Value
+    }"...`
   );
   await s3
     .putBucketTagging({
@@ -123,8 +142,8 @@ export const setBucketPolicy = (bucketName: string) => {
 };
 
 export const identifyingTag: Tag = {
-  Key: "created-by",
-  Value: "aws-spa"
+  Key: "managed-by-aws-spa",
+  Value: "v1"
 };
 
 // This will allow CloudFront to store the file on the edge location,
