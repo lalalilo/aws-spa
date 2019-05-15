@@ -4,7 +4,9 @@ import {
   createBucket,
   syncToS3,
   setBucketWebsite,
-  setBucketPolicy
+  setBucketPolicy,
+  confirmBucketManagement,
+  tagBucket
 } from "./s3";
 import { getCertificateARN, createCertificate } from "./acm";
 import {
@@ -34,9 +36,12 @@ export const deploy = async (
     throw new Error(`folder "index.html" not found in "${folder}" folder`);
   }
 
-  if (!(await doesS3BucketExists(domainName))) {
+  if (await doesS3BucketExists(domainName)) {
+    await confirmBucketManagement(domainName);
+  } else {
     await createBucket(domainName);
   }
+  await tagBucket(domainName);
   await setBucketWebsite(domainName);
   await setBucketPolicy(domainName);
 
