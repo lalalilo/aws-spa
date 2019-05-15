@@ -5,7 +5,6 @@ import {
   setBucketPolicy,
   doesS3BucketExists,
   syncToS3,
-  indexCacheControl,
   confirmBucketManagement,
   tagBucket
 } from "./s3";
@@ -322,7 +321,9 @@ describe("s3", () => {
         (call: any) => call[0].Key === "index.html"
       );
       expect(putObjectIndex).toBeDefined();
-      expect(putObjectIndex[0].CacheControl).toEqual(indexCacheControl);
+      expect(putObjectIndex[0].CacheControl).toEqual(
+        "public, must-revalidate, proxy-revalidate, max-age=0"
+      );
     });
   });
 });

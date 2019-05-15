@@ -146,17 +146,6 @@ export const identifyingTag: Tag = {
   Value: "v1"
 };
 
-// This will allow CloudFront to store the file on the edge location,
-// but it will force it to revalidate it with the origin with each request.
-// If the file hasn't changed, CloudFront will not need to transfer the
-// file's entire content from the origin.
-export const indexCacheControl =
-  "public, must-revalidate, proxy-revalidate, max-age=0";
-
-// js & css files should have a hash so if index.html change: the js & css
-// file will change. It allows to have an aggressive cache for js & css files.
-const nonIndexCacheControl = "max-age=31536000";
-
 export const syncToS3 = function(folder: string, bucketName: string) {
   logger.info(`[S3] ✏️ Uploading "${folder}" folder on "${bucketName}"...`);
 
@@ -165,13 +154,13 @@ export const syncToS3 = function(folder: string, bucketName: string) {
     filesToUpload.map(file => {
       const filenameParts = file.split(".");
       const key = file.replace(`${folder}/`, "");
+
       return s3
         .putObject({
           Bucket: bucketName,
           Key: key,
           Body: createReadStream(file),
-          CacheControl:
-            key === "index.html" ? indexCacheControl : nonIndexCacheControl,
+          CacheControl: getCacheControl(key),
           ContentType:
             lookup(filenameParts[filenameParts.length - 1]) ||
             "application/octet-stream"
@@ -179,4 +168,22 @@ export const syncToS3 = function(folder: string, bucketName: string) {
         .promise();
     })
   );
+};
+
+const getCacheControl = (filename: string) => {
+  if (filename === "index.html") {
+    // This will allow CloudFront to store the file on the edge location,
+    // but it will force it to revalidate it with the origin with each request.
+    // If the file hasn't changed, CloudFront will not need to transfer the
+    // file's entire content from the origin.
+    return "public, must-revalidate, proxy-revalidate, max-age=0";
+  }
+
+  if (filename.startsWith("static/")) {
+    // js & css files should have a hash so if index.html change: the js & css
+    // file will change. It allows to have an aggressive cache for js & css files.
+    return "max-age=31536000";
+  }
+
+  return undefined;
 };
