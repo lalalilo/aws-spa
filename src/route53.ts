@@ -1,3 +1,4 @@
+import { prompt } from "inquirer";
 import { route53 } from "./aws-services";
 import { logger } from "./logger";
 import { getAll } from "./aws-helper";
@@ -52,6 +53,63 @@ export const createHostedZone = async (domainName: string) => {
     .promise();
 
   return HostedZone;
+};
+
+export const confirmUpdateRecord = async (
+  hostedZoneId: string,
+  domainName: string,
+  cloudfrontDomainName: string
+) => {
+  logger.info(`[route53] 🔍 Looking for a matching record...`);
+  // todo: handle many records
+  const { ResourceRecordSets } = await route53
+    .listResourceRecordSets({
+      HostedZoneId: hostedZoneId
+    })
+    .promise();
+
+  for (const record of ResourceRecordSets) {
+    if (record.Name !== `${domainName}.`) {
+      continue;
+    }
+
+    if (record.Type !== "CNAME") {
+      const { continueUpdate } = await prompt([
+        {
+          type: "confirm",
+          name: "continueUpdate",
+          message: `[Route53] Record for "${domainName}" is not a CNAME record. Do you want to change the record?`,
+          default: false
+        }
+      ]);
+      return continueUpdate;
+    }
+
+    if (!record.ResourceRecords) {
+      return true;
+    }
+    if (record.ResourceRecords.length !== 1) {
+      throw new Error(
+        `Record for "${domainName}" Has 0 or more than 1 value. aws-spa does not know what to do in this case...`
+      );
+    }
+    if (record.ResourceRecords[0].Value !== `${cloudfrontDomainName}.`) {
+      const { continueUpdate } = await prompt([
+        {
+          type: "confirm",
+          name: "continueUpdate",
+          message: `[Route53] CNAME Record for "${domainName}" value is "${
+            record.ResourceRecords[0].Value
+          }". Would you like to update it to "${cloudfrontDomainName}."?`,
+          default: false
+        }
+      ]);
+      return continueUpdate;
+    }
+    return true;
+  }
+
+  return true;
 };
 
 export const updateRecord = async (

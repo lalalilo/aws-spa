@@ -18,7 +18,12 @@ import {
   tagCloudFrontDistribution,
   DistributionIdentificationDetail
 } from "./cloudfront";
-import { findHostedZone, createHostedZone, updateRecord } from "./route53";
+import {
+  findHostedZone,
+  createHostedZone,
+  updateRecord,
+  confirmUpdateRecord
+} from "./route53";
 import { logger } from "./logger";
 
 export const deploy = async (
@@ -67,7 +72,15 @@ export const deploy = async (
   if (!hostedZone) {
     hostedZone = await createHostedZone(domainName);
   }
-  await updateRecord(hostedZone.Id, domainName, distribution.DomainName);
+  if (
+    await confirmUpdateRecord(
+      hostedZone.Id,
+      domainName,
+      distribution.DomainName
+    )
+  ) {
+    await updateRecord(hostedZone.Id, domainName, distribution.DomainName);
+  }
 
   await syncToS3(folder, domainName);
   await invalidateCloudfrontCache(distribution.Id, wait);
