@@ -37,7 +37,12 @@ export const deploy = async (
     throw new Error(`folder "${folder}" not found`);
   }
   if (!existsSync(`${folder}/index.html`)) {
-    throw new Error(`folder "index.html" not found in "${folder}" folder`);
+    throw new Error(`"index.html" not found in "${folder}" folder`);
+  }
+  if (!existsSync(`${folder}/static`)) {
+    logger.warn(
+      `folder "${folder}/static" does not exists. Only files in this folder are assumed to have a hash as explained in https://facebook.github.io/create-react-app/docs/production-build#static-file-caching and will be aggressively cached`
+    );
   }
 
   if (await doesS3BucketExists(domainName)) {
