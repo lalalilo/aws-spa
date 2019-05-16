@@ -53,7 +53,7 @@ export const findDeployedCloudfrontDistribution = async (
 
   logger.info(`[CloudFront] 👍 Distribution found: ${distribution.Id}`);
 
-  if (distribution.Status === "In Progress") {
+  if (["InProgress", "In Progress"].includes(distribution.Status)) {
     logger.info(
       `[CloudFront] ⏱ Waiting for distribution to be deployed. This step might takes up to 25 minutes...`
     );
