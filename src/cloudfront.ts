@@ -180,8 +180,8 @@ const getDistributionConfig = (
 ): DistributionConfig => ({
   CallerReference: Date.now().toString(),
   Aliases: {
-    Quantity: 1,
-    Items: [domainName]
+    Quantity: 0,
+    Items: []
   },
   Origins: {
     Quantity: 1,

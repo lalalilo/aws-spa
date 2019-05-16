@@ -71,7 +71,6 @@ export const deploy = async (
     );
   }
   await tagCloudFrontDistribution(distribution);
-  await updateCloudFrontDistribution(domainName, certificateArn, distribution);
 
   let hostedZone = await findHostedZone(domainName);
   if (!hostedZone) {
@@ -86,6 +85,10 @@ export const deploy = async (
   ) {
     await updateRecord(hostedZone.Id, domainName, distribution.DomainName);
   }
+
+  // CloudFront must be updated after DNS record update to avoid error
+  // "One or more aliases specified for the distribution includes an incorrectly configured DNS record that points to another CloudFront distribution"
+  await updateCloudFrontDistribution(domainName, certificateArn, distribution);
 
   await syncToS3(folder, domainName);
   await invalidateCloudfrontCache(distribution.Id, wait);
