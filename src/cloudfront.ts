@@ -15,7 +15,7 @@ export interface DistributionIdentificationDetail {
 }
 
 export const findDeployedCloudfrontDistribution = async (
-  domainName: string
+  originBucketName: string
 ) => {
   const distributions = await getAll<DistributionSummary>(
     async (nextMarker, page) => {
@@ -40,11 +40,10 @@ export const findDeployedCloudfrontDistribution = async (
     }
   );
 
-  const distribution = distributions.find(_distribution =>
-    Boolean(
-      _distribution.Aliases.Items &&
-        _distribution.Aliases.Items.includes(domainName)
-    )
+  const distribution = distributions.find(
+    _distribution =>
+      _distribution.Origins.Items[0] &&
+      _distribution.Origins.Items[0].Id === getOriginId(originBucketName)
   );
 
   if (!distribution) {
