@@ -31,12 +31,8 @@ describe("cloudfront", () => {
               Items: [
                 {
                   Id: "GOODBYE",
-                  Origins: {
-                    Items: [
-                      {
-                        Id: `S3-Website-goodbye.example.com.s3-website.eu-west-3.amazonaws.com`
-                      }
-                    ]
+                  Aliases: {
+                    Items: ["goodbye.example.com"]
                   }
                 }
               ]
@@ -50,12 +46,8 @@ describe("cloudfront", () => {
                 {
                   Id: "HELLO",
                   Status: "Deployed",
-                  Origins: {
-                    Items: [
-                      {
-                        Id: `S3-Website-hello.example.com.s3-website.eu-west-3.amazonaws.com`
-                      }
-                    ]
+                  Aliases: {
+                    Items: ["hello.example.com"]
                   }
                 }
               ]
@@ -86,12 +78,8 @@ describe("cloudfront", () => {
               {
                 Id: "HELLO",
                 Status: "In Progress",
-                Origins: {
-                  Items: [
-                    {
-                      Id: `S3-Website-hello.example.com.s3-website.eu-west-3.amazonaws.com`
-                    }
-                  ]
+                Aliases: {
+                  Items: ["hello.example.com"]
                 }
               }
             ]

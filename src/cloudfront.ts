@@ -40,10 +40,11 @@ export const findDeployedCloudfrontDistribution = async (
     }
   );
 
-  const distribution = distributions.find(
-    _distribution =>
-      _distribution.Origins.Items[0] &&
-      _distribution.Origins.Items[0].Id === getOriginId(domainName)
+  const distribution = distributions.find(_distribution =>
+    Boolean(
+      _distribution.Aliases.Items &&
+        _distribution.Aliases.Items.includes(domainName)
+    )
   );
 
   if (!distribution) {
