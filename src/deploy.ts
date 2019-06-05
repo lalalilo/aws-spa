@@ -13,9 +13,6 @@ import {
   findDeployedCloudfrontDistribution,
   createCloudFrontDistribution,
   invalidateCloudfrontCache,
-  updateCloudFrontDistribution,
-  confirmDistributionManagement,
-  tagCloudFrontDistribution,
   DistributionIdentificationDetail
 } from "./cloudfront";
 import {
@@ -62,15 +59,12 @@ export const deploy = async (
   let distribution: DistributionIdentificationDetail | null = await findDeployedCloudfrontDistribution(
     domainName
   );
-  if (distribution) {
-    await confirmDistributionManagement(distribution);
-  } else {
+  if (!distribution) {
     distribution = await createCloudFrontDistribution(
       domainName,
       certificateArn
     );
   }
-  await tagCloudFrontDistribution(distribution);
 
   let hostedZone = await findHostedZone(domainName);
   if (!hostedZone) {
@@ -85,10 +79,6 @@ export const deploy = async (
   ) {
     await updateRecord(hostedZone.Id, domainName, distribution.DomainName);
   }
-
-  // CloudFront must be updated after DNS record update to avoid error
-  // "One or more aliases specified for the distribution includes an incorrectly configured DNS record that points to another CloudFront distribution"
-  await updateCloudFrontDistribution(domainName, certificateArn, distribution);
 
   await syncToS3(folder, domainName);
   await invalidateCloudfrontCache(distribution.Id, wait);

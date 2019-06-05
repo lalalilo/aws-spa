@@ -12,12 +12,10 @@ Configuring the deployment of a single page app is harder than it should be. Mos
 
 - Create AWS Bucket & CloudFront distribution & Route 53 record & ACM certificate and configure it
 - Serve gzipped file
-- [Smart](https://facebook.github.io/create-react-app/docs/production-build#static-file-caching) HTTP cache
+- [Smart](https://facebook.github.io/create-react-app/docs/production-build#static-file-caching) HTTP cache (cache busted files should be in the `static` subfolder of the build folder).
 - Invalidate CloudFront after deployment
 
 This script is idempotent.
-
-aws-spa is aware of the resources it is managing thanks to tags, therefore aws-spa can safely manage existing S3 bucket & Cloudfront distribution & non-empty hosted zones. No resource will be updated without a prompt of your consent if there is no identifying tag associated to the resource.
 
 Here is a quick overview of what it is doing for the first deployment:
 
@@ -34,6 +32,17 @@ npx aws-spa deploy hello.example.com --directory build
 ```
 
 You can also add a flag `--wait` if you want the script to wait for CloudFront cache invalidation to be completed. If you choose not to wait, you won't see site changes as soon as the command ends.
+
+## Migrate an existing SPA on aws-spa
+
+aws-spa is aware of the resources it is managing thanks to tags.
+
+If a S3 bucket named with the domain name already exists, a prompt will ask you if want to deleguate the management of this bucket to aws-s3.
+
+If a CloudFront distribution with this S3 bucket already exists, the script will fail because CloudFront distribution update is quite complicated.
+
+- If you don't care about downtime, you can delete the CloudFront distribution first.
+- If you care about downtime, you can configure the CloudFront distribution by yourself (don't forget to gzip the files) and then add the tag key: `managed-by-aws-spa`, value: `v1`.
 
 ## IAM
 

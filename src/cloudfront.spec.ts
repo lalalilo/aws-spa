@@ -1,16 +1,11 @@
 import { cloudfront } from "./aws-services";
-import { awsResolve, awsReject } from "./test-helper";
+import { awsResolve } from "./test-helper";
 import {
   findDeployedCloudfrontDistribution,
-  confirmDistributionManagement,
   invalidateCloudfrontCache,
   identifyingTag,
-  createCloudFrontDistribution,
-  updateCloudFrontDistribution
+  createCloudFrontDistribution
 } from "./cloudfront";
-import * as inquirer from "inquirer";
-
-jest.mock("inquirer");
 
 describe("cloudfront", () => {
   describe("findDeployedCloudfrontDistribution", () => {
@@ -118,101 +113,6 @@ describe("cloudfront", () => {
     });
   });
 
-  describe("confirmDistributionManagement", () => {
-    const listTagsForResourceMock = jest.spyOn(
-      cloudfront,
-      "listTagsForResource"
-    );
-    const promptMock = jest.spyOn(inquirer, "prompt");
-
-    afterEach(() => {
-      listTagsForResourceMock.mockReset();
-      promptMock.mockReset();
-    });
-
-    it("should not prompt if distribution is tagged by aws-spa", async () => {
-      listTagsForResourceMock.mockReturnValue(
-        awsResolve({ Tags: { Items: [identifyingTag] } })
-      );
-      expect(
-        await confirmDistributionManagement({
-          Id: "distribution-id",
-          ARN: "distribution-arn",
-          DomainName: ""
-        })
-      ).toEqual(true);
-      expect(listTagsForResourceMock.mock.calls.length).toEqual(1);
-      const getTaggingParams: any = listTagsForResourceMock.mock.calls[0][0];
-      expect(getTaggingParams.Resource).toEqual("distribution-arn");
-      expect(promptMock).not.toHaveBeenCalled();
-    });
-
-    it("should prompt if distribution no tag from aws-spa", async () => {
-      listTagsForResourceMock.mockReturnValue(
-        awsResolve({ Tags: { Items: [] } })
-      );
-      promptMock.mockResolvedValue({ continueUpdate: true });
-      expect(
-        await confirmDistributionManagement({
-          Id: "distribution-id",
-          ARN: "distribution-arn",
-          DomainName: ""
-        })
-      ).toEqual(true);
-      expect(promptMock).toHaveBeenCalled();
-    });
-
-    it("should throw if fetch tag throwed", async () => {
-      listTagsForResourceMock.mockReturnValue(
-        awsReject(400, "fetch tagging error")
-      );
-      try {
-        await confirmDistributionManagement({
-          Id: "distribution-id",
-          ARN: "arn",
-          DomainName: ""
-        });
-        throw new Error("this test should have failed");
-      } catch (error) {
-        expect(error.message).toEqual("fetch tagging error");
-      }
-    });
-
-    it("should throw if aws-spa management is refused", async () => {
-      listTagsForResourceMock.mockReturnValue(awsResolve({ TagSet: [] }));
-      promptMock.mockResolvedValue({ continueUpdate: false });
-      try {
-        await confirmDistributionManagement({
-          Id: "distribution-id",
-          ARN: "arn",
-          DomainName: ""
-        });
-        throw new Error("this test should have failed");
-      } catch (error) {
-        expect(error.message).not.toEqual("this test should have failed");
-      }
-    });
-  });
-
-  describe("updateCloudFrontDistribution", () => {
-    const updateDistributionMock = jest.spyOn(cloudfront, "updateDistribution");
-
-    afterEach(() => {
-      updateDistributionMock.mockReset();
-    });
-    it("should call cloudfront.updateDistribution", async () => {
-      updateDistributionMock.mockReturnValue(awsResolve());
-      await updateCloudFrontDistribution("some-bucket", "certificate-arn", {
-        Id: "distribution-id",
-        ARN: "distribution-arn",
-        DomainName: ""
-      });
-      expect(updateDistributionMock).toHaveBeenCalledTimes(1);
-      const updateParams: any = updateDistributionMock.mock.calls[0][0];
-      expect(updateParams.Id).toEqual("distribution-id");
-    });
-  });
-
   describe("invalidateCloudfrontCache", () => {
     const createInvalidationMock = jest.spyOn(cloudfront, "createInvalidation");
     const waitForMock = jest.spyOn(cloudfront, "waitFor");
@@ -246,10 +146,12 @@ describe("cloudfront", () => {
   describe("createCloudFrontDistribution", () => {
     const createDistributionMock = jest.spyOn(cloudfront, "createDistribution");
     const waitForMock = jest.spyOn(cloudfront, "waitFor");
+    const tagResourceMock = jest.spyOn(cloudfront, "tagResource");
 
     afterEach(() => {
       createDistributionMock.mockReset();
       waitForMock.mockReset();
+      tagResourceMock.mockReset();
     });
 
     it("should create a distribution and wait for it to be available", async () => {
@@ -257,12 +159,14 @@ describe("cloudfront", () => {
       createDistributionMock.mockReturnValue(
         awsResolve({ Distribution: distribution })
       );
+      tagResourceMock.mockReturnValue(awsResolve());
       waitForMock.mockReturnValue(awsResolve());
       const result = await createCloudFrontDistribution(
         "hello.lalilo.com",
         "arn:certificate"
       );
       expect(result).toBe(distribution);
+      expect(tagResourceMock).toHaveBeenCalledTimes(1);
       expect(createDistributionMock).toHaveBeenCalledTimes(1);
       const distributionParam: any = createDistributionMock.mock.calls[0][0];
       const distributionConfig = distributionParam.DistributionConfig;

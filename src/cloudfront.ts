@@ -15,7 +15,7 @@ export interface DistributionIdentificationDetail {
 }
 
 export const findDeployedCloudfrontDistribution = async (
-  originBucketName: string
+  domainName: string
 ) => {
   const distributions = await getAll<DistributionSummary>(
     async (nextMarker, page) => {
@@ -43,12 +43,30 @@ export const findDeployedCloudfrontDistribution = async (
   const distribution = distributions.find(
     _distribution =>
       _distribution.Origins.Items[0] &&
-      _distribution.Origins.Items[0].Id === getOriginId(originBucketName)
+      _distribution.Origins.Items[0].Id === getOriginId(domainName)
   );
 
   if (!distribution) {
     logger.info(`[CloudFront] 😬 No matching distribution`);
     return null;
+  }
+
+  const { Tags } = await cloudfront
+    .listTagsForResource({ Resource: distribution.ARN })
+    .promise();
+  if (
+    !Tags ||
+    !Tags.Items ||
+    !Tags.Items.find(
+      tag =>
+        tag.Key === identifyingTag.Key && tag.Value === identifyingTag.Value
+    )
+  ) {
+    throw new Error(
+      `CloudFront distribution ${distribution.Id} has no tag ${
+        identifyingTag.Key
+      }:${identifyingTag.Value}`
+    );
   }
 
   logger.info(`[CloudFront] 👍 Distribution found: ${distribution.Id}`);
@@ -62,69 +80,6 @@ export const findDeployedCloudfrontDistribution = async (
       .promise();
   }
   return distribution;
-};
-
-export const confirmDistributionManagement = async (
-  distribution: DistributionIdentificationDetail
-) => {
-  logger.info(
-    `[CloudFront] 🔍 Checking that tag "${identifyingTag.Key}:${
-      identifyingTag.Value
-    }" exists on distribution "${distribution.Id}"...`
-  );
-
-  const { Tags } = await cloudfront
-    .listTagsForResource({ Resource: distribution.ARN })
-    .promise();
-
-  if (
-    Tags &&
-    Tags.Items &&
-    Tags.Items.find(
-      tag =>
-        tag.Key === identifyingTag.Key && tag.Value === identifyingTag.Value
-    )
-  ) {
-    return true;
-  }
-
-  const { continueUpdate } = await prompt([
-    {
-      type: "confirm",
-      name: "continueUpdate",
-      message: `[CloudFront] Distribution "${
-        distribution.Id
-      }" is not yet managed by aws-spa. Would you like it to be managed by aws-spa?`,
-      default: false
-    }
-  ]);
-
-  if (continueUpdate) {
-    return true;
-  }
-
-  throw new Error(
-    "You can use another domain name or delete the distribution..."
-  );
-};
-
-export const updateCloudFrontDistribution = async (
-  originBucketName: string,
-  sslCertificateARN: string,
-  distribution: DistributionIdentificationDetail
-) => {
-  logger.info(
-    `[CloudFront] ✏️ Updating "${distribution.Id}" distribution config...`
-  );
-  await cloudfront
-    .updateDistribution({
-      DistributionConfig: getDistributionConfig(
-        originBucketName,
-        sslCertificateARN
-      ),
-      Id: distribution.Id
-    })
-    .promise();
 };
 
 export const tagCloudFrontDistribution = async (
@@ -165,6 +120,8 @@ export const createCloudFrontDistribution = async (
     throw new Error("[CloudFront] Could not create distribution");
   }
 
+  await tagCloudFrontDistribution(Distribution);
+
   logger.info(
     `[CloudFront] ⏱ Waiting for distribution to be available. This step might takes up to 25 minutes...`
   );
@@ -180,8 +137,8 @@ const getDistributionConfig = (
 ): DistributionConfig => ({
   CallerReference: Date.now().toString(),
   Aliases: {
-    Quantity: 0,
-    Items: []
+    Quantity: 1,
+    Items: [domainName]
   },
   Origins: {
     Quantity: 1,
@@ -192,13 +149,46 @@ const getDistributionConfig = (
         CustomOriginConfig: {
           HTTPPort: 80,
           HTTPSPort: 443,
-          OriginProtocolPolicy: "http-only"
-        }
+          OriginProtocolPolicy: "http-only",
+          OriginSslProtocols: {
+            Quantity: 1,
+            Items: ["TLSv1"]
+          },
+          OriginReadTimeout: 30,
+          OriginKeepaliveTimeout: 5
+        },
+        CustomHeaders: {
+          Quantity: 0,
+          Items: []
+        },
+        OriginPath: ""
       }
     ]
   },
   Enabled: true,
   Comment: "",
+  PriceClass: "PriceClass_All",
+  Logging: {
+    Enabled: false,
+    IncludeCookies: false,
+    Bucket: "",
+    Prefix: ""
+  },
+  CacheBehaviors: {
+    Quantity: 0
+  },
+  CustomErrorResponses: {
+    Quantity: 0
+  },
+  Restrictions: {
+    GeoRestriction: {
+      RestrictionType: "none",
+      Quantity: 0
+    }
+  },
+  DefaultRootObject: "index.html",
+  WebACLId: "",
+  HttpVersion: "http2",
   DefaultCacheBehavior: {
     ViewerProtocolPolicy: "redirect-to-https",
     TargetOriginId: getOriginId(domainName),
@@ -206,6 +196,14 @@ const getDistributionConfig = (
       QueryString: false,
       Cookies: {
         Forward: "none"
+      },
+      Headers: {
+        Quantity: 0,
+        Items: []
+      },
+      QueryStringCacheKeys: {
+        Quantity: 0,
+        Items: []
       }
     },
     AllowedMethods: {
@@ -221,6 +219,14 @@ const getDistributionConfig = (
       Quantity: 0
     },
     MinTTL: 0,
+    DefaultTTL: 86400,
+    MaxTTL: 31536000,
+    FieldLevelEncryptionId: "",
+    LambdaFunctionAssociations: {
+      Quantity: 0,
+      Items: []
+    },
+    SmoothStreaming: false,
     Compress: true // this is required to deliver gzip data
   },
   ViewerCertificate: {
