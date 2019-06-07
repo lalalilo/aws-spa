@@ -44,6 +44,10 @@ If a CloudFront distribution with this S3 bucket already exists, the script will
 - If you don't care about downtime, you can delete the CloudFront distribution first.
 - If you care about downtime, you can configure the CloudFront distribution by yourself (don't forget to gzip the files) and then add the tag key: `managed-by-aws-spa`, value: `v1`.
 
+## Use path to deploy multiple apps in the same s3 bucket
+
+You can specify a path such as `npx aws-spa deploy hello.example.com/some-path --directory build`. It will deploy the app in the bucket `hello.example.com` in the folder `some-path`. This can be useful to deploy multiple versions of the same app in a s3 bucket. For example one could deploy a feature branch of the SPA like this: `npx aws-spa deploy hello.example.com/$(git branch | grep \* | cut -d ' ' -f2)`
+
 ## IAM
 
 TODO: complete the required access.

@@ -14,7 +14,7 @@ yargs
           type: "string",
           demand: true,
           describe:
-            'The domain name on which the SPA will be accessible. For example "app.example.com"'
+            'The domain name on which the SPA will be accessible. For example "app.example.com". You can also specify a path: "app.example.com/something"'
         })
         .option("wait", {
           type: "boolean",

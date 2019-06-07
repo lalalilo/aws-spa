@@ -146,7 +146,11 @@ export const identifyingTag: Tag = {
   Value: "v1"
 };
 
-export const syncToS3 = function(folder: string, bucketName: string) {
+export const syncToS3 = function(
+  folder: string,
+  bucketName: string,
+  subfolder?: string
+) {
   logger.info(`[S3] ✏️ Uploading "${folder}" folder on "${bucketName}"...`);
 
   const filesToUpload = readRecursively(folder);
@@ -155,10 +159,11 @@ export const syncToS3 = function(folder: string, bucketName: string) {
       const filenameParts = file.split(".");
       const key = file.replace(`${folder}/`, "");
 
+      const prefix = subfolder ? `${subfolder}/` : "";
       return s3
         .putObject({
           Bucket: bucketName,
-          Key: key,
+          Key: `${prefix}${key}`,
           Body: createReadStream(file),
           CacheControl: getCacheControl(key),
           ContentType:

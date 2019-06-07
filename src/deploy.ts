@@ -23,12 +23,13 @@ import {
 } from "./route53";
 import { logger } from "./logger";
 
-export const deploy = async (
-  domainName: string,
-  folder: string,
-  wait: boolean
-) => {
-  logger.info(`✨ Deploying "${folder}" on "${domainName}"...`);
+export const deploy = async (url: string, folder: string, wait: boolean) => {
+  const [domainName, s3Folder] = url.split("/");
+
+  logger.info(
+    `✨ Deploying "${folder}" on "${domainName}" with path "${s3Folder ||
+      "/"}"...`
+  );
 
   if (!existsSync(folder)) {
     throw new Error(`folder "${folder}" not found`);
@@ -80,6 +81,6 @@ export const deploy = async (
     await updateRecord(hostedZone.Id, domainName, distribution.DomainName);
   }
 
-  await syncToS3(folder, domainName);
+  await syncToS3(folder, domainName, s3Folder);
   await invalidateCloudfrontCache(distribution.Id, wait);
 };
