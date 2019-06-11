@@ -3,8 +3,32 @@
   "version": "1.4.0",
   "description": "A no-brainer script to deploy a single page app on AWS",
   "main": "index.js",
-  "repository": "git@github.com:nicgirault/aws-spa.git",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nicgirault/aws-spa.git"
+  },
   "author": "nicgirault <nic.girault@gmail.com>",
+  "keywords": [
+    "react",
+    "vue",
+    "angular",
+    "create-react-app",
+    "deploy",
+    "aws",
+    "s3",
+    "cloudfront",
+    "acm",
+    "route53"
+  ],
+  "tags": [
+    "react",
+    "deploy",
+    "aws"
+  ],
+  "bugs": {
+    "url": "https://github.com/nicgirault/aws-spa/issues"
+  },
+  "homepage": "https://github.com/nicgirault/aws-spa#readme",
   "license": "MIT",
   "scripts": {
     "build": "babel src -d lib --extensions '.ts'",
