@@ -2,7 +2,20 @@
 
 Deploy a single page app on AWS in one command.
 
+[Tell me](https://docs.google.com/forms/d/e/1FAIpQLScOmEb-XfjWLipMxgHzZKkse5XiAjN83MW-jW5uHuqmnabEnQ/viewform) why you won't use it.
+
 [![CircleCI](https://circleci.com/gh/nicgirault/aws-spa.svg?style=svg)](https://circleci.com/gh/nicgirault/aws-spa) [![codecov](https://codecov.io/gh/nicgirault/aws-spa/branch/master/graph/badge.svg)](https://codecov.io/gh/nicgirault/aws-spa)
+
+## Install & use
+
+```bash
+npm install --dev aws-spa
+# or
+yarn add --dev aws-spa
+
+# then
+npx aws-spa deploy hello.example.com --directory build
+```
 
 ## Why?
 
@@ -46,7 +59,17 @@ If a CloudFront distribution with this S3 bucket already exists, the script will
 
 ## Use path to deploy multiple apps in the same s3 bucket
 
-You can specify a path such as `npx aws-spa deploy hello.example.com/some-path --directory build`. It will deploy the app in the bucket `hello.example.com` in the folder `some-path`. This can be useful to deploy multiple versions of the same app in a s3 bucket. For example one could deploy a feature branch of the SPA like this: `npx aws-spa deploy hello.example.com/$(git branch | grep \* | cut -d ' ' -f2)`
+You can specify a path such as
+
+```
+npx aws-spa deploy hello.example.com/some-path --directory build
+```
+
+It will deploy the app in the bucket `hello.example.com` in the folder `some-path`. This can be useful to deploy multiple versions of the same app in a s3 bucket. For example one could deploy a feature branch of the SPA like this:
+
+```
+npx aws-spa deploy hello.example.com/$(git branch | grep \* | cut -d ' ' -f2)
+```
 
 ## IAM
 
