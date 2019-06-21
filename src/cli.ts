@@ -36,8 +36,10 @@ yargs
       try {
         await deploy(argv.domainName, argv.directory, argv.wait);
         logger.info("✅ done!");
+        process.exit(0);
       } catch (error) {
         logger.error(`💥 ${error.message}`);
+        process.exit(1);
       }
     }
   )
