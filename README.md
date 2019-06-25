@@ -74,3 +74,13 @@ npx aws-spa deploy hello.example.com/$(git branch | grep \* | cut -d ' ' -f2)
 ## IAM
 
 TODO: complete the required access.
+
+## FAQ
+
+### Why not using Ansible, Saltstack, Terraform, Cloudformation, Troposphere, etc?
+
+If it better suits your use case, these tools are probably a very good choice because there are done for this. Meanwhile there are some reasons why it is written in javascript:
+
+- in my CI/CD installing Ansible, awscli or Terraform takes more than 1 minute. Since my SPA needs nodejs to be built, having a the same dependency to deploy is convenient & fast.
+- Developers would have to learn these tools while they have already tons of things to learn. Using a script in the same language that they develop is nice.
+- These tools are quite heavy while deploying a SPA requires only a couple of AWS API calls.
