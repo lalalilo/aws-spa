@@ -1,7 +1,9 @@
 import { getAll } from "./aws-helper";
-import { CertificateSummary, ValidationMethod } from "aws-sdk/clients/acm";
+import { CertificateSummary, ResourceRecord } from "aws-sdk/clients/acm";
 import { acm } from "./aws-services";
 import { logger } from "./logger";
+import { HostedZone } from "aws-sdk/clients/route53";
+import { createCertificateValidationDNSRecord } from "./route53";
 
 export const getCertificateARN = async (domainName: string) => {
   let waitFor: null | string = null;
@@ -89,19 +91,22 @@ export const getCertificateARN = async (domainName: string) => {
   logger.info(
     `[ACM] ⏱ Waiting for certificate validation: the domain owner of "${domainName}" should have received an email...`
   );
-  await acm.waitFor("certificateValidated", { CertificateArn: waitFor });
+  await acm
+    .waitFor("certificateValidated", { CertificateArn: waitFor })
+    .promise();
   return waitFor;
 };
 
 export const createCertificate = async (
   domainName: string,
-  validationMethod: ValidationMethod = "EMAIL"
+  hostedZoneId: string,
+  delay?: number
 ) => {
   logger.info(`[ACM] ✏️ Requesting a certificate for "${domainName}"...`);
   const { CertificateArn } = await acm
     .requestCertificate({
       DomainName: domainName,
-      ValidationMethod: validationMethod
+      ValidationMethod: "DNS"
     })
     .promise();
 
@@ -109,11 +114,49 @@ export const createCertificate = async (
     throw new Error("No CertificateArn returned");
   }
 
-  logger.info(
-    `[ACM] ⏱ Request sent. Waiting for certificate validation: the domain owner of "${domainName}" should have received an email...`
-  );
-  await acm.waitFor("certificateValidated", { CertificateArn });
+  await handleDNSValidation(CertificateArn, domainName, hostedZoneId, delay);
   return CertificateArn;
+};
+
+const handleDNSValidation = async (
+  certificateARN: string,
+  domainName: string,
+  hostedZoneId: string,
+  delay: number = 5000
+) => {
+  // https://github.com/aws/aws-sdk-js/issues/2133
+  await new Promise(resolve => setTimeout(resolve, delay));
+
+  const { Certificate } = await acm
+    .describeCertificate({ CertificateArn: certificateARN })
+    .promise();
+  if (!Certificate || !Certificate.DomainValidationOptions) {
+    throw new Error("Could not access domain validation options");
+  }
+
+  const domainValidationOption = Certificate.DomainValidationOptions.find(
+    ({ DomainName, ResourceRecord }) =>
+      DomainName === domainName && Boolean(ResourceRecord)
+  );
+  if (!domainValidationOption) {
+    throw new Error(
+      `Could not find domain validation options for "${domainName}" with DNS validation`
+    );
+  }
+
+  await createCertificateValidationDNSRecord(
+    domainValidationOption.ResourceRecord as ResourceRecord,
+    hostedZoneId
+  );
+  logger.info(
+    `[ACM] ⏱ Request sent. Waiting for certificate validation by DNS`
+  );
+  await acm
+    .waitFor("certificateValidated", {
+      CertificateArn: certificateARN,
+      $waiter: { delay: 10 }
+    })
+    .promise();
 };
 
 export const domainNameMatch = (

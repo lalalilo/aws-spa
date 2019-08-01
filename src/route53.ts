@@ -3,6 +3,7 @@ import { route53 } from "./aws-services";
 import { logger } from "./logger";
 import { getAll } from "./aws-helper";
 import { HostedZone } from "aws-sdk/clients/route53";
+import { ResourceRecord } from "aws-sdk/clients/acm";
 
 export const findHostedZone = async (domainName: string) => {
   logger.info(
@@ -55,12 +56,13 @@ export const createHostedZone = async (domainName: string) => {
   return HostedZone;
 };
 
-export const confirmUpdateRecord = async (
+export const needsUpdateRecord = async (
   hostedZoneId: string,
   domainName: string,
   cloudfrontDomainName: string
 ) => {
   logger.info(`[route53] 🔍 Looking for a matching record...`);
+
   // todo: handle many records
   const { ResourceRecordSets } = await route53
     .listResourceRecordSets({
@@ -73,27 +75,12 @@ export const confirmUpdateRecord = async (
       continue;
     }
 
-    if (record.Type !== "CNAME") {
-      const { continueUpdate } = await prompt([
-        {
-          type: "confirm",
-          name: "continueUpdate",
-          message: `[Route53] Record for "${domainName}" is not a CNAME record. Do you want to change the record?`,
-          default: false
-        }
-      ]);
-      return continueUpdate;
-    }
+    if (record.Type === "CNAME" && record.ResourceRecords) {
+      if (record.ResourceRecords[0].Value === `${cloudfrontDomainName}.`) {
+        logger.info(`[route53] 👍 Found well configured CNAME matching record`);
+        return false;
+      }
 
-    if (!record.ResourceRecords) {
-      return true;
-    }
-    if (record.ResourceRecords.length !== 1) {
-      throw new Error(
-        `Record for "${domainName}" Has 0 or more than 1 value. aws-spa does not know what to do in this case...`
-      );
-    }
-    if (record.ResourceRecords[0].Value !== `${cloudfrontDomainName}.`) {
       const { continueUpdate } = await prompt([
         {
           type: "confirm",
@@ -104,11 +91,49 @@ export const confirmUpdateRecord = async (
           default: false
         }
       ]);
-      return continueUpdate;
+      if (continueUpdate) {
+        return true;
+      } else {
+        logger.warn(
+          "⚠️ website might not be served correctly unless you allow route53 record update"
+        );
+        return false;
+      }
     }
-    return true;
+
+    if (record.Type === "A" && record.AliasTarget) {
+      if (
+        record.AliasTarget.HostedZoneId === "Z2FDTNDATAQYW2" &&
+        record.AliasTarget.DNSName === `${cloudfrontDomainName}.`
+      ) {
+        logger.info(`[route53] 👍 Found well configured A matching record`);
+        return false;
+      }
+
+      const { continueUpdate } = await prompt([
+        {
+          type: "confirm",
+          name: "continueUpdate",
+          message: `[Route53] A Record for "${domainName}" value is "${
+            record.AliasTarget.HostedZoneId
+          }:${record.AliasTarget.DNSName}". Would you like to update it to "${
+            record.AliasTarget.HostedZoneId
+          }:${cloudfrontDomainName}."?`,
+          default: false
+        }
+      ]);
+      if (continueUpdate) {
+        return true;
+      } else {
+        logger.warn(
+          "⚠️ website might not be served correctly unless you allow route53 record update"
+        );
+        return false;
+      }
+    }
   }
 
+  logger.info(`[route53] 🔍 No matching record found.`);
   return true;
 };
 
@@ -118,7 +143,7 @@ export const updateRecord = async (
   cloudfrontDomainName: string
 ) => {
   logger.info(
-    `[route53] ✏️ Upserting CNAME: "${domainName}." → ${cloudfrontDomainName}...`
+    `[route53] ✏️ Upserting A: "${domainName}." → ${cloudfrontDomainName}...`
   );
   await route53
     .changeResourceRecordSets({
@@ -129,9 +154,41 @@ export const updateRecord = async (
             Action: "UPSERT",
             ResourceRecordSet: {
               Name: `${domainName}.`,
-              Type: "CNAME",
-              TTL: 3600,
-              ResourceRecords: [{ Value: `${cloudfrontDomainName}.` }]
+              AliasTarget: {
+                HostedZoneId: "Z2FDTNDATAQYW2", // https://docs.aws.amazon.com/general/latest/gr/rande.html#cf_region
+                DNSName: `${cloudfrontDomainName}.`,
+                EvaluateTargetHealth: false
+              },
+              Type: "A"
+            }
+          }
+        ]
+      }
+    })
+    .promise();
+};
+
+export const createCertificateValidationDNSRecord = async (
+  record: ResourceRecord,
+  hostedZoneId: string
+) => {
+  logger.info(
+    `[Route53] Creating record ${record.Type}:${record.Name}=${
+      record.Value
+    } to validate SSL certificate`
+  );
+  await route53
+    .changeResourceRecordSets({
+      HostedZoneId: hostedZoneId,
+      ChangeBatch: {
+        Changes: [
+          {
+            Action: "UPSERT",
+            ResourceRecordSet: {
+              Name: record.Name,
+              Type: record.Type,
+              ResourceRecords: [{ Value: record.Value }],
+              TTL: 3600
             }
           }
         ]

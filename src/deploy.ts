@@ -19,7 +19,7 @@ import {
   findHostedZone,
   createHostedZone,
   updateRecord,
-  confirmUpdateRecord
+  needsUpdateRecord
 } from "./route53";
 import { logger } from "./logger";
 
@@ -52,9 +52,14 @@ export const deploy = async (url: string, folder: string, wait: boolean) => {
   await setBucketWebsite(domainName);
   await setBucketPolicy(domainName);
 
+  let hostedZone = await findHostedZone(domainName);
+  if (!hostedZone) {
+    hostedZone = await createHostedZone(domainName);
+  }
+
   let certificateArn = await getCertificateARN(domainName);
   if (!certificateArn) {
-    certificateArn = await createCertificate(domainName);
+    certificateArn = await createCertificate(domainName, hostedZone.Id);
   }
 
   let distribution: DistributionIdentificationDetail | null = await findDeployedCloudfrontDistribution(
@@ -67,16 +72,8 @@ export const deploy = async (url: string, folder: string, wait: boolean) => {
     );
   }
 
-  let hostedZone = await findHostedZone(domainName);
-  if (!hostedZone) {
-    hostedZone = await createHostedZone(domainName);
-  }
   if (
-    await confirmUpdateRecord(
-      hostedZone.Id,
-      domainName,
-      distribution.DomainName
-    )
+    await needsUpdateRecord(hostedZone.Id, domainName, distribution.DomainName)
   ) {
     await updateRecord(hostedZone.Id, domainName, distribution.DomainName);
   }

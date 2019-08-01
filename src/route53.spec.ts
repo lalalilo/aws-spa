@@ -93,8 +93,8 @@ describe("route53", () => {
         updateRecordParams.ChangeBatch.Changes[0].ResourceRecordSet.Name
       ).toEqual("hello.example.com.");
       expect(
-        updateRecordParams.ChangeBatch.Changes[0].ResourceRecordSet
-          .ResourceRecords[0].Value
+        updateRecordParams.ChangeBatch.Changes[0].ResourceRecordSet.AliasTarget
+          .DNSName
       ).toEqual("distribution-id.cloudfront.net.");
     });
   });

@@ -1,5 +1,5 @@
 import { domainNameMatch, getCertificateARN, createCertificate } from "./acm";
-import { acm } from "./aws-services";
+import { acm, route53 } from "./aws-services";
 import { awsResolve } from "./test-helper";
 
 describe("acm", () => {
@@ -254,10 +254,17 @@ describe("acm", () => {
   describe("createCertificate", () => {
     const requestCertificateMock = jest.spyOn(acm, "requestCertificate");
     const waitForMock = jest.spyOn(acm, "waitFor");
+    const describeCertificateMock = jest.spyOn(acm, "describeCertificate");
+    const changeResourceRecordSetsMock = jest.spyOn(
+      route53,
+      "changeResourceRecordSets"
+    );
 
     afterEach(() => {
       requestCertificateMock.mockReset();
       waitForMock.mockReset();
+      describeCertificateMock.mockReset();
+      changeResourceRecordSetsMock.mockReset();
     });
 
     it("should request a certificate", async () => {
@@ -266,16 +273,50 @@ describe("acm", () => {
           CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx"
         })
       );
+      describeCertificateMock.mockReturnValue(
+        awsResolve({
+          Certificate: {
+            DomainValidationOptions: [
+              {
+                DomainName: "hello.example.com",
+                ResourceRecord: {
+                  Name: "_sOmESTrAnGeChArAcTeRs.example.com",
+                  Type: "CNAME",
+                  Value: "_sOmESTrAnGeChArAcTeRs"
+                }
+              }
+            ]
+          }
+        })
+      );
+      changeResourceRecordSetsMock.mockReturnValue(awsResolve());
       waitForMock.mockReturnValue(awsResolve());
-      await createCertificate("hello.example.com");
+      await createCertificate("hello.example.com", "hostedZoneId", 0);
       expect(requestCertificateMock).toHaveBeenCalledTimes(1);
       const requestCertificateParams: any =
         requestCertificateMock.mock.calls[0][0];
       expect(requestCertificateParams.DomainName).toEqual("hello.example.com");
-      expect(requestCertificateParams.ValidationMethod).toEqual("EMAIL");
+      expect(requestCertificateParams.ValidationMethod).toEqual("DNS");
       expect(waitForMock).toHaveBeenCalledWith("certificateValidated", {
-        CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx"
+        CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx",
+        $waiter: { delay: 10 }
       });
+
+      expect(changeResourceRecordSetsMock).toHaveBeenCalledTimes(1);
+      const changeResourceRecordSetsMockParams: any =
+        changeResourceRecordSetsMock.mock.calls[0][0];
+      expect(
+        changeResourceRecordSetsMockParams.ChangeBatch.Changes[0]
+          .ResourceRecordSet.Name
+      ).toEqual("_sOmESTrAnGeChArAcTeRs.example.com");
+      expect(
+        changeResourceRecordSetsMockParams.ChangeBatch.Changes[0]
+          .ResourceRecordSet.Type
+      ).toEqual("CNAME");
+      expect(
+        changeResourceRecordSetsMockParams.ChangeBatch.Changes[0]
+          .ResourceRecordSet.ResourceRecords[0].Value
+      ).toEqual("_sOmESTrAnGeChArAcTeRs");
     });
   });
 });
