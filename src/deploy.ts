@@ -47,6 +47,10 @@ export const deploy = async (url: string, folder: string, wait: boolean) => {
     await confirmBucketManagement(domainName);
   } else {
     await createBucket(domainName);
+
+    // without this timeout `setBucketPolicy` fails with error
+    // "The specified bucket does not exist"
+    await new Promise(resolve => setTimeout(resolve, 2000));
   }
   await tagBucket(domainName);
   await setBucketWebsite(domainName);
