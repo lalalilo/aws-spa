@@ -33,11 +33,10 @@
   "scripts": {
     "build": "babel src -d lib --extensions '.ts'",
     "prebuild": "yarn check-types && yarn test",
-    "prepublish": "npm run snyk-protect && yarn build",
+    "prepublish": "yarn build",
     "run-cli": "babel-node --extensions '.ts' src/cli.ts",
     "check-types": "tsc",
-    "test": "jest",
-    "snyk-protect": "snyk protect"
+    "test": "jest"
   },
   "bin": {
     "aws-spa": "./lib/cli.js"
@@ -51,34 +50,32 @@
     }
   },
   "dependencies": {
-    "aws-sdk": "^2.444.0",
-    "inquirer": "^6.3.1",
+    "aws-sdk": "^2.569.0",
+    "inquirer": "^7.0.0",
     "mime-types": "^2.1.24",
-    "snyk": "^1.198.0",
-    "yargs": "^13.2.2"
+    "yargs": "^14.2.0"
   },
   "devDependencies": {
-    "@babel/cli": "^7.4.4",
-    "@babel/core": "^7.4.4",
-    "@babel/node": "^7.2.2",
-    "@babel/plugin-proposal-class-properties": "^7.4.4",
-    "@babel/plugin-proposal-object-rest-spread": "^7.4.4",
-    "@babel/preset-env": "^7.4.4",
-    "@babel/preset-typescript": "^7.3.3",
+    "@babel/cli": "^7.7.0",
+    "@babel/core": "^7.7.2",
+    "@babel/node": "^7.7.0",
+    "@babel/plugin-proposal-class-properties": "^7.7.0",
+    "@babel/plugin-proposal-object-rest-spread": "^7.6.2",
+    "@babel/preset-env": "^7.7.1",
+    "@babel/preset-typescript": "^7.7.2",
     "@types/adm-zip": "^0.4.32",
     "@types/aws-sdk": "^2.7.0",
-    "@types/inquirer": "^6.0.1",
-    "@types/jest": "^24.0.11",
+    "@types/inquirer": "^6.5.0",
+    "@types/jest": "^24.0.22",
     "@types/mime-types": "^2.1.0",
-    "@types/node": "^11.13.8",
-    "@types/rimraf": "^2.0.2",
-    "@types/yargs": "^13.0.0",
+    "@types/node": "^12.12.7",
+    "@types/rimraf": "^2.0.3",
+    "@types/yargs": "^13.0.3",
     "adm-zip": "^0.4.13",
-    "codecov": "^3.3.0",
-    "husky": "^2.1.0",
-    "jest": "^24.7.1",
-    "rimraf": "^2.6.3",
-    "typescript": "^3.4.5"
-  },
-  "snyk": true
+    "codecov": "^3.6.1",
+    "husky": "^3.0.9",
+    "jest": "^24.9.0",
+    "rimraf": "^3.0.0",
+    "typescript": "^3.7.2"
+  }
 }
