@@ -2,8 +2,6 @@
 
 Deploy a single page app on AWS in one command.
 
-[Tell me](https://docs.google.com/forms/d/e/1FAIpQLScOmEb-XfjWLipMxgHzZKkse5XiAjN83MW-jW5uHuqmnabEnQ/viewform) why you won't use it.
-
 [![CircleCI](https://circleci.com/gh/nicgirault/aws-spa.svg?style=svg)](https://circleci.com/gh/nicgirault/aws-spa) [![codecov](https://codecov.io/gh/nicgirault/aws-spa/branch/master/graph/badge.svg)](https://codecov.io/gh/nicgirault/aws-spa)
 
 ## Install & use
@@ -34,7 +32,9 @@ Here is a quick overview of what it is doing for the first deployment:
 
 ![first deployment](https://raw.githubusercontent.com/nicgirault/aws-spa/master/docs/first-deployment.png)
 
-## How to use
+## Get Started
+
+### With create-react-app
 
 ```
 npx create-react-app hello-world
