@@ -1,12 +1,13 @@
-import { prompt } from "inquirer";
 import { cloudfront, bucketRegion, websiteEndpoint } from "./aws-services";
 import { getAll } from "./aws-helper";
 import { logger } from "./logger";
 import {
   DistributionSummary,
   DistributionConfig,
-  Tag
+  Tag,
+  LambdaFunctionAssociationList
 } from "aws-sdk/clients/cloudfront";
+import { lambdaPrefix } from "./lambda";
 
 export interface DistributionIdentificationDetail {
   Id: string;
@@ -64,9 +65,7 @@ export const findDeployedCloudfrontDistribution = async (
     )
   ) {
     throw new Error(
-      `CloudFront distribution ${distribution.Id} has no tag ${
-        identifyingTag.Key
-      }:${identifyingTag.Value}`
+      `CloudFront distribution ${distribution.Id} has no tag ${identifyingTag.Key}:${identifyingTag.Value}`
     );
   }
 
@@ -87,9 +86,7 @@ export const tagCloudFrontDistribution = async (
   distribution: DistributionIdentificationDetail
 ) => {
   logger.info(
-    `[CloudFront] ✏️ Tagging "${distribution.Id}" bucket with "${
-      identifyingTag.Key
-    }:${identifyingTag.Value}"...`
+    `[CloudFront] ✏️ Tagging "${distribution.Id}" bucket with "${identifyingTag.Key}:${identifyingTag.Value}"...`
   );
   await cloudfront
     .tagResource({
@@ -282,4 +279,92 @@ export const invalidateCloudfrontCache = async (
 export const identifyingTag: Tag = {
   Key: "managed-by-aws-spa",
   Value: "v1"
+};
+
+export const setSimpleAuthBehavior = async (
+  distributionId: string,
+  lambdaFunctionARN: string | null
+) => {
+  const { DistributionConfig, ETag } = await cloudfront
+    .getDistributionConfig({ Id: distributionId })
+    .promise();
+
+  const lambdaConfigs = DistributionConfig!.DefaultCacheBehavior
+    .LambdaFunctionAssociations!.Items!;
+
+  if (lambdaFunctionARN === null) {
+    logger.info(
+      `[CloudFront] 📚 No basic auth configured. Checking if there is a basic auth to remove...`
+    );
+    const updatedLambdaFunctions = lambdaConfigs.filter(
+      config => !config.LambdaFunctionARN.includes(lambdaPrefix)
+    );
+
+    if (updatedLambdaFunctions.length !== lambdaConfigs.length) {
+      logger.info(
+        `[CloudFront] 🗑 Removing lambda function association handling basic auth...`
+      );
+
+      await updateLambdaFunctionAssociations(
+        distributionId,
+        DistributionConfig!,
+        updatedLambdaFunctions,
+        ETag!
+      );
+      logger.info(`[CloudFront] 👍 Lambda function association removed`);
+    } else {
+      logger.info(`[CloudFront] 👍 No basic auth setup`);
+    }
+    return;
+  }
+
+  logger.info(`[CloudFront] 📚 Checking if basic auth is already setup...`);
+  console.log(lambdaConfigs, lambdaFunctionARN);
+  if (
+    lambdaConfigs.find(config => config.LambdaFunctionARN === lambdaFunctionARN)
+  ) {
+    logger.info(`[CloudFront] 👍 Basic auth already setup`);
+    return;
+  }
+
+  logger.info(
+    `[CloudFront] ✏️ Adding simple auth behavior (and replacing "viewer-request" lambda if any)...`
+  );
+  await updateLambdaFunctionAssociations(
+    distributionId,
+    DistributionConfig!,
+    [
+      ...lambdaConfigs.filter(config => config.EventType !== "viewer-request"),
+      {
+        LambdaFunctionARN: lambdaFunctionARN,
+        EventType: "viewer-request",
+        IncludeBody: false
+      }
+    ],
+    ETag!
+  );
+};
+
+const updateLambdaFunctionAssociations = async (
+  distributionId: string,
+  DistributionConfig: DistributionConfig,
+  lambdaConfigs: LambdaFunctionAssociationList,
+  ETag: string
+) => {
+  await cloudfront
+    .updateDistribution({
+      Id: distributionId,
+      IfMatch: ETag,
+      DistributionConfig: {
+        ...DistributionConfig,
+        DefaultCacheBehavior: {
+          ...DistributionConfig.DefaultCacheBehavior,
+          LambdaFunctionAssociations: {
+            Quantity: lambdaConfigs.length,
+            Items: lambdaConfigs
+          }
+        }
+      }
+    })
+    .promise();
 };

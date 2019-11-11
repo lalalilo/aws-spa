@@ -13,7 +13,8 @@ import {
   findDeployedCloudfrontDistribution,
   createCloudFrontDistribution,
   invalidateCloudfrontCache,
-  DistributionIdentificationDetail
+  DistributionIdentificationDetail,
+  setSimpleAuthBehavior
 } from "./cloudfront";
 import {
   findHostedZone,
@@ -22,8 +23,14 @@ import {
   needsUpdateRecord
 } from "./route53";
 import { logger } from "./logger";
+import { deploySimpleAuthLambda } from "./lambda";
 
-export const deploy = async (url: string, folder: string, wait: boolean) => {
+export const deploy = async (
+  url: string,
+  folder: string,
+  wait: boolean,
+  credentials?: string
+) => {
   const [domainName, s3Folder] = url.split("/");
 
   logger.info(
@@ -74,6 +81,16 @@ export const deploy = async (url: string, folder: string, wait: boolean) => {
       domainName,
       certificateArn
     );
+  }
+
+  if (credentials) {
+    const simpleAuthLambdaARN = await deploySimpleAuthLambda(
+      domainName,
+      credentials
+    );
+    await setSimpleAuthBehavior(distribution.Id, simpleAuthLambdaARN);
+  } else {
+    await setSimpleAuthBehavior(distribution.Id, null);
   }
 
   if (

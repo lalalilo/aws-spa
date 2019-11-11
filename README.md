@@ -25,6 +25,7 @@ Configuring the deployment of a single page app is harder than it should be. Mos
 - Serve gzipped file
 - [Smart](https://facebook.github.io/create-react-app/docs/production-build#static-file-caching) HTTP cache (cache busted files should be in the `static` subfolder of the build folder).
 - Invalidate CloudFront after deployment
+- Basic Auth (recommended to avoid search engine indexation)
 
 This script is idempotent.
 
@@ -46,6 +47,30 @@ npx aws-spa deploy hello.example.com --directory build
 
 You can also add a flag `--wait` if you want the script to wait for CloudFront cache invalidation to be completed. If you choose not to wait, you won't see site changes as soon as the command ends.
 
+## API
+
+### aws-spa deploy
+
+Deploy a single page app on AWS
+
+#### Positionals:
+
+- domainName:
+
+The domain name on which the SPA will be accessible. For example "app.example.com".
+
+You can also specify a path: "app.example.com/something". This can be useful to deploy multiple versions of the app in the same s3 bucket. For example one could deploy a feature branch of the SPA like this:
+
+```bash
+aws-spa deploy app.example.com/$(git branch | grep * | cut -d ' ' -f2)
+```
+
+#### Options:
+
+- --wait: Wait for CloudFront distribution to be deployed & cache invalidation to be completed
+- --directory: The directory where the static files have been generated. It must contain an index.html
+- --credentials This option enables basic auth for the full s3 bucket (even if the domainName specifies a path). Credentials must be of the form "username:password". Basic auth is the recommened way to avoid search engine indexation of non-production apps (such as staging)
+
 ## Migrate an existing SPA on aws-spa
 
 aws-spa is aware of the resources it is managing thanks to tags.
@@ -57,23 +82,16 @@ If a CloudFront distribution with this S3 bucket already exists, the script will
 - If you don't care about downtime, you can delete the CloudFront distribution first.
 - If you care about downtime, you can configure the CloudFront distribution by yourself (don't forget to gzip the files) and then add the tag key: `managed-by-aws-spa`, value: `v1`.
 
-## Use path to deploy multiple apps in the same s3 bucket
-
-You can specify a path such as
-
-```
-npx aws-spa deploy hello.example.com/some-path --directory build
-```
-
-It will deploy the app in the bucket `hello.example.com` in the folder `some-path`. This can be useful to deploy multiple versions of the same app in a s3 bucket. For example one could deploy a feature branch of the SPA like this:
-
-```
-npx aws-spa deploy hello.example.com/$(git branch | grep \* | cut -d ' ' -f2)
-```
-
 ## IAM
 
-TODO: complete the required access.
+cloudfront:CreateDistribution
+TODO: complete missing policies
+
+### If using simple auth
+
+lambda:GetFunction
+lambda:EnableReplication\*
+iam:CreateServiceLinkedRole
 
 ## FAQ
 
