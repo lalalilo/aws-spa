@@ -4,6 +4,8 @@ Deploy a single page app on AWS in one command.
 
 [![CircleCI](https://circleci.com/gh/nicgirault/aws-spa.svg?style=svg)](https://circleci.com/gh/nicgirault/aws-spa) [![codecov](https://codecov.io/gh/nicgirault/aws-spa/branch/master/graph/badge.svg)](https://codecov.io/gh/nicgirault/aws-spa)
 
+![first deployment](https://raw.githubusercontent.com/nicgirault/aws-spa/master/docs/first-deployment.png)
+
 ## Install & use
 
 ```bash
@@ -26,26 +28,18 @@ Configuring the deployment of a single page app is harder than it should be. Mos
 - [Smart](https://facebook.github.io/create-react-app/docs/production-build#static-file-caching) HTTP cache (cache busted files should be in the `static` subfolder of the build folder).
 - Invalidate CloudFront after deployment
 - Basic Auth (recommended to avoid search engine indexation)
-
-This script is idempotent.
-
-Here is a quick overview of what it is doing for the first deployment:
-
-![first deployment](https://raw.githubusercontent.com/nicgirault/aws-spa/master/docs/first-deployment.png)
+- idempotent script
 
 ## Get Started
 
 ### With create-react-app
 
 ```
-npx create-react-app hello-world
-cd hello-world
+npx create-react-app hello-world && cd hello-world
 yarn add aws-spa
 yarn build
-npx aws-spa deploy hello.example.com --directory build
+npx aws-spa deploy hello.example.com
 ```
-
-You can also add a flag `--wait` if you want the script to wait for CloudFront cache invalidation to be completed. If you choose not to wait, you won't see site changes as soon as the command ends.
 
 ## API
 
@@ -67,9 +61,9 @@ aws-spa deploy app.example.com/$(git branch | grep * | cut -d ' ' -f2)
 
 #### Options:
 
-- --wait: Wait for CloudFront distribution to be deployed & cache invalidation to be completed
-- --directory: The directory where the static files have been generated. It must contain an index.html
-- --credentials This option enables basic auth for the full s3 bucket (even if the domainName specifies a path). Credentials must be of the form "username:password". Basic auth is the recommened way to avoid search engine indexation of non-production apps (such as staging)
+- `--wait`: Wait for CloudFront distribution to be deployed & cache invalidation to be completed. If you choose not to wait (default), you won't see site changes as soon as the command ends.
+- `--directory`: The directory where the static files have been generated. It must contain an index.html
+- `--credentials` This option enables basic auth for the full s3 bucket (even if the domainName specifies a path). Credentials must be of the form "username:password". Basic auth is the recommened way to avoid search engine indexation of non-production apps (such as staging)
 
 ## Migrate an existing SPA on aws-spa
 
