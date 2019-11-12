@@ -1,4 +1,4 @@
-import { S3, ACM, CloudFront, Route53 } from "aws-sdk";
+import { S3, ACM, CloudFront, Route53, Lambda, IAM } from "aws-sdk";
 
 // Bucket region must be fixed so that website endpoint is fixe
 // https://docs.aws.amazon.com/fr_fr/general/latest/gr/rande.html#s3_website_region_endpoints
@@ -8,6 +8,9 @@ export const s3 = new S3({
   apiVersion: "2006-03-01",
   region: bucketRegion
 });
+
+export const lambda = new Lambda({ region: "us-east-1" });
+export const iam = new IAM({ region: "us-east-1", apiVersion: "2010-05-08" });
 
 // cloudfront certificates must be in us-east-1
 export const acm = new ACM({ region: "us-east-1" });

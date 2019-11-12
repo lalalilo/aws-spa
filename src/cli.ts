@@ -13,8 +13,11 @@ yargs
         .positional("domainName", {
           type: "string",
           demand: true,
-          describe:
-            'The domain name on which the SPA will be accessible. For example "app.example.com". You can also specify a path: "app.example.com/something"'
+          describe: `The domain name on which the SPA will be accessible. For example "app.example.com".
+
+          You can also specify a path: "app.example.com/something". This can be useful to deploy multiple versions of the app in the same s3 bucket. For example one could deploy a feature branch of the SPA like this:
+
+          aws-spa deploy app.example.com/$(git branch | grep \* | cut -d ' ' -f2)`
         })
         .option("wait", {
           type: "boolean",
@@ -27,6 +30,11 @@ yargs
           default: "build",
           describe:
             "The directory where the static files have been generated. It must contain an index.html file"
+        })
+        .option("credentials", {
+          type: "string",
+          describe:
+            'This option enables basic auth for the full s3 bucket (even if the domainName specifies a path). Credentials must be of the form "username:password". Basic auth is the recommended way to avoid search engine indexation of non-production apps (such as staging)'
         });
     },
     async argv => {
@@ -34,7 +42,12 @@ yargs
         throw new Error("domainName must be provided");
       }
       try {
-        await deploy(argv.domainName, argv.directory, argv.wait);
+        await deploy(
+          argv.domainName,
+          argv.directory,
+          argv.wait,
+          argv.credentials
+        );
         logger.info("✅ done!");
         process.exit(0);
       } catch (error) {

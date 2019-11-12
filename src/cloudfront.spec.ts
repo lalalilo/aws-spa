@@ -4,8 +4,10 @@ import {
   findDeployedCloudfrontDistribution,
   invalidateCloudfrontCache,
   identifyingTag,
-  createCloudFrontDistribution
+  createCloudFrontDistribution,
+  setSimpleAuthBehavior
 } from "./cloudfront";
+import { lambdaPrefix } from "./lambda";
 
 describe("cloudfront", () => {
   describe("findDeployedCloudfrontDistribution", () => {
@@ -174,6 +176,106 @@ describe("cloudfront", () => {
       expect(waitForMock).toHaveBeenCalledWith("distributionDeployed", {
         Id: "distribution-id"
       });
+    });
+  });
+
+  describe("setSimpleAuthBehavior", () => {
+    const getDistributionConfig = jest.spyOn(
+      cloudfront,
+      "getDistributionConfig"
+    );
+    const updateDistribution = jest.spyOn(cloudfront, "updateDistribution");
+
+    beforeEach(() => {
+      getDistributionConfig.mockReset();
+      updateDistribution.mockReset();
+    });
+
+    it("should not update if there is no lambda association & no credentials", async () => {
+      getDistributionConfig.mockReturnValueOnce(
+        awsResolve({
+          DistributionConfig: {
+            DefaultCacheBehavior: {
+              LambdaFunctionAssociations: {
+                Items: []
+              }
+            }
+          },
+          ETag: ""
+        })
+      );
+      await setSimpleAuthBehavior("distribution-id", null);
+      expect(updateDistribution).not.toHaveBeenCalled();
+    });
+
+    it("should remove lambda association if lambda is set but no credential is set", async () => {
+      getDistributionConfig.mockReturnValueOnce(
+        awsResolve({
+          DistributionConfig: {
+            DefaultCacheBehavior: {
+              LambdaFunctionAssociations: {
+                Items: [{ LambdaFunctionARN: `some-arn:${lambdaPrefix}:1` }]
+              }
+            }
+          },
+          ETag: ""
+        })
+      );
+      updateDistribution.mockReturnValueOnce(awsResolve());
+      await setSimpleAuthBehavior("distribution-id", null);
+      expect(updateDistribution).toHaveBeenCalledTimes(1);
+      expect(
+        (updateDistribution.mock.calls[0][0] as any).DistributionConfig
+          .DefaultCacheBehavior.LambdaFunctionAssociations.Items
+      ).toEqual([]);
+    });
+
+    it("should not update if there is a lambda association & credentials", async () => {
+      getDistributionConfig.mockReturnValueOnce(
+        awsResolve({
+          DistributionConfig: {
+            DefaultCacheBehavior: {
+              LambdaFunctionAssociations: {
+                Items: [{ LambdaFunctionARN: `some-arn:${lambdaPrefix}:1` }]
+              }
+            }
+          },
+          ETag: ""
+        })
+      );
+      await setSimpleAuthBehavior(
+        "distribution-id",
+        `some-arn:${lambdaPrefix}:1`
+      );
+      expect(updateDistribution).not.toHaveBeenCalled();
+    });
+
+    it("should add lambda association if lambda is not set set but credentials are set", async () => {
+      getDistributionConfig.mockReturnValueOnce(
+        awsResolve({
+          DistributionConfig: {
+            DefaultCacheBehavior: {
+              LambdaFunctionAssociations: {
+                Items: []
+              }
+            }
+          },
+          ETag: ""
+        })
+      );
+      updateDistribution.mockReturnValueOnce(awsResolve());
+      await setSimpleAuthBehavior("distribution-id", "some-arn:1");
+      expect(updateDistribution).toHaveBeenCalledTimes(1);
+      expect(
+        (updateDistribution.mock.calls[0][0] as any).DistributionConfig
+          .DefaultCacheBehavior.LambdaFunctionAssociations.Items
+      ).toEqual([
+        {
+          EventType: "viewer-request",
+          IncludeBody: false,
+          LambdaFunctionARN: "some-arn:1"
+        }
+      ]);
     });
   });
 });
