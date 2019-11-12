@@ -1,6 +1,6 @@
 {
   "name": "aws-spa",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "A no-brainer script to deploy a single page app on AWS",
   "main": "index.js",
   "repository": {
