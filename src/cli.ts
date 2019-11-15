@@ -33,9 +33,9 @@ yargs
         })
         .option("cacheInvalidation", {
           type: "string",
-          default: "*",
+          default: "/*",
           describe:
-            "The paths to invalidate on CloudFront. Default is all (*). You can specify several paths comma separated."
+            "The paths to invalidate on CloudFront. Default is all (/*). You can specify several paths comma separated."
         })
         .option("cacheBustedPrefix", {
           type: "string",
