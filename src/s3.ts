@@ -44,9 +44,7 @@ export const createBucket = async (bucketName: string) => {
 
 export const confirmBucketManagement = async (bucketName: string) => {
   logger.info(
-    `[S3] 🔍 Checking that tag "${identifyingTag.Key}:${
-      identifyingTag.Value
-    }" exists on bucket "${bucketName}"...`
+    `[S3] 🔍 Checking that tag "${identifyingTag.Key}:${identifyingTag.Value}" exists on bucket "${bucketName}"...`
   );
   try {
     const { TagSet } = await s3
@@ -86,9 +84,7 @@ export const confirmBucketManagement = async (bucketName: string) => {
 
 export const tagBucket = async (bucketName: string) => {
   logger.info(
-    `[S3] ✏️ Tagging "${bucketName}" bucket with "${identifyingTag.Key}:${
-      identifyingTag.Value
-    }"...`
+    `[S3] ✏️ Tagging "${bucketName}" bucket with "${identifyingTag.Key}:${identifyingTag.Value}"...`
   );
   await s3
     .putBucketTagging({
@@ -149,6 +145,7 @@ export const identifyingTag: Tag = {
 export const syncToS3 = function(
   folder: string,
   bucketName: string,
+  cacheBustedPrefix: string | undefined,
   subfolder?: string
 ) {
   logger.info(`[S3] ✏️ Uploading "${folder}" folder on "${bucketName}"...`);
@@ -165,7 +162,7 @@ export const syncToS3 = function(
           Bucket: bucketName,
           Key: `${prefix}${key}`,
           Body: createReadStream(file),
-          CacheControl: getCacheControl(key),
+          CacheControl: getCacheControl(key, cacheBustedPrefix),
           ContentType:
             lookup(filenameParts[filenameParts.length - 1]) ||
             "application/octet-stream"
@@ -175,7 +172,10 @@ export const syncToS3 = function(
   );
 };
 
-const getCacheControl = (filename: string) => {
+const getCacheControl = (
+  filename: string,
+  cacheBustedPrefix: string | undefined
+) => {
   if (filename === "index.html") {
     // This will allow CloudFront to store the file on the edge location,
     // but it will force it to revalidate it with the origin with each request.
@@ -184,7 +184,7 @@ const getCacheControl = (filename: string) => {
     return "public, must-revalidate, proxy-revalidate, max-age=0";
   }
 
-  if (filename.startsWith("static/")) {
+  if (cacheBustedPrefix && filename.startsWith(cacheBustedPrefix)) {
     // js & css files should have a hash so if index.html change: the js & css
     // file will change. It allows to have an aggressive cache for js & css files.
     return "max-age=31536000";

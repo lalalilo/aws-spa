@@ -29,7 +29,9 @@ export const deploy = async (
   url: string,
   folder: string,
   wait: boolean,
-  credentials?: string
+  cacheInvalidations: string,
+  cacheBustedPrefix: string | undefined,
+  credentials: string | undefined
 ) => {
   const [domainName, s3Folder] = url.split("/");
 
@@ -43,11 +45,6 @@ export const deploy = async (
   }
   if (!existsSync(`${folder}/index.html`)) {
     throw new Error(`"index.html" not found in "${folder}" folder`);
-  }
-  if (!existsSync(`${folder}/static`)) {
-    logger.warn(
-      `folder "${folder}/static" does not exists. Only files in this folder are assumed to have a hash as explained in https://facebook.github.io/create-react-app/docs/production-build#static-file-caching and will be aggressively cached`
-    );
   }
 
   if (await doesS3BucketExists(domainName)) {
@@ -99,6 +96,6 @@ export const deploy = async (
     await updateRecord(hostedZone.Id, domainName, distribution.DomainName);
   }
 
-  await syncToS3(folder, domainName, s3Folder);
-  await invalidateCloudfrontCache(distribution.Id, wait);
+  await syncToS3(folder, domainName, cacheBustedPrefix, s3Folder);
+  await invalidateCloudfrontCache(distribution.Id, cacheInvalidations, wait);
 };

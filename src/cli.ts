@@ -31,6 +31,16 @@ yargs
           describe:
             "The directory where the static files have been generated. It must contain an index.html file"
         })
+        .option("cacheInvalidation", {
+          type: "string",
+          default: "*",
+          describe:
+            "The paths to invalidate on CloudFront. Default is all (*). You can specify several paths comma separated."
+        })
+        .option("cacheBustedPrefix", {
+          type: "string",
+          describe: "A folder where files use cache busting strategy."
+        })
         .option("credentials", {
           type: "string",
           describe:
@@ -46,6 +56,8 @@ yargs
           argv.domainName,
           argv.directory,
           argv.wait,
+          argv.cacheInvalidation,
+          argv.cacheBustedPrefix,
           argv.credentials
         );
         logger.info("✅ done!");

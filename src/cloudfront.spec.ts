@@ -112,22 +112,42 @@ describe("cloudfront", () => {
       waitForMock.mockReset();
     });
 
-    it("should invalidate index.html", async () => {
+    it("should invalidate the specified path", async () => {
       createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }));
-      await invalidateCloudfrontCache("some-distribution-id");
+      await invalidateCloudfrontCache("some-distribution-id", "index.html");
 
       expect(createInvalidationMock).toHaveBeenCalledTimes(1);
       const invalidationParams: any = createInvalidationMock.mock.calls[0][0];
       expect(invalidationParams.DistributionId).toEqual("some-distribution-id");
       expect(invalidationParams.InvalidationBatch.Paths.Items[0]).toEqual(
-        "/index.html"
+        "index.html"
       );
+    });
+
+    it("should invalidate the specified paths", async () => {
+      createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }));
+      await invalidateCloudfrontCache(
+        "some-distribution-id",
+        "index.html, static/*"
+      );
+
+      expect(createInvalidationMock).toHaveBeenCalledTimes(1);
+      const invalidationParams: any = createInvalidationMock.mock.calls[0][0];
+      expect(invalidationParams.DistributionId).toEqual("some-distribution-id");
+      expect(invalidationParams.InvalidationBatch.Paths.Items).toEqual([
+        "index.html",
+        "static/*"
+      ]);
     });
 
     it("should wait for invalidate if wait flag is true", async () => {
       createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }));
       waitForMock.mockReturnValue(awsResolve());
-      await invalidateCloudfrontCache("some-distribution-id", true);
+      await invalidateCloudfrontCache(
+        "some-distribution-id",
+        "index.html",
+        true
+      );
       expect(waitForMock).toHaveBeenCalledTimes(1);
       expect(waitForMock.mock.calls[0][0]).toEqual("invalidationCompleted");
     });

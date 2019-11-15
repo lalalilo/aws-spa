@@ -243,6 +243,7 @@ const getOriginId = (domainName: string) =>
 
 export const invalidateCloudfrontCache = async (
   distributionId: string,
+  paths: string,
   wait: boolean = false
 ) => {
   logger.info("[CloudFront] ✏️ Creating invalidation...");
@@ -252,8 +253,8 @@ export const invalidateCloudfrontCache = async (
       InvalidationBatch: {
         CallerReference: Date.now().toString(),
         Paths: {
-          Quantity: 1,
-          Items: ["/index.html"]
+          Quantity: paths.split(",").length,
+          Items: paths.split(",").map(path => path.trim())
         }
       }
     })

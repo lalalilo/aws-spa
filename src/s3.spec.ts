@@ -303,7 +303,7 @@ describe("s3", () => {
     });
 
     it("should call s3.putObject for each file returned by readRecursively", async () => {
-      await syncToS3("some-folder", "some-bucket");
+      await syncToS3("some-folder", "some-bucket", "static/");
       expect(readRecursivelyMock).toHaveBeenCalledWith("some-folder");
       expect(putObjectSpy).toHaveBeenCalledTimes(someFiles.length);
       for (const call of putObjectSpy.mock.calls as any) {
@@ -313,7 +313,7 @@ describe("s3", () => {
     });
 
     it("should set the right cache-control", async () => {
-      await syncToS3("some-folder", "some-bucket");
+      await syncToS3("some-folder", "some-bucket", "static/");
       expect(readRecursivelyMock).toHaveBeenCalledWith("some-folder");
       expect(putObjectSpy).toHaveBeenCalledTimes(someFiles.length);
 
