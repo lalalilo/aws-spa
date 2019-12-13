@@ -45,6 +45,12 @@ yargs
           type: "string",
           describe:
             'This option enables basic auth for the full s3 bucket (even if the domainName specifies a path). Credentials must be of the form "username:password". Basic auth is the recommended way to avoid search engine indexation of non-production apps (such as staging)'
+        })
+        .option("noPrompt", {
+          type: "boolean",
+          default: false,
+          describe:
+            "Disable confirm message that prompts on non CI environments (env CI=true)"
         });
     },
     async argv => {
@@ -58,7 +64,8 @@ yargs
           argv.wait,
           argv.cacheInvalidation,
           argv.cacheBustedPrefix,
-          argv.credentials
+          argv.credentials,
+          argv.noPrompt
         );
         logger.info("✅ done!");
         process.exit(0);

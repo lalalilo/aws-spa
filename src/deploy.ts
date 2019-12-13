@@ -24,6 +24,7 @@ import {
 } from "./route53";
 import { logger } from "./logger";
 import { deploySimpleAuthLambda } from "./lambda";
+import { predeployPrompt } from "./prompt";
 
 export const deploy = async (
   url: string,
@@ -31,8 +32,11 @@ export const deploy = async (
   wait: boolean,
   cacheInvalidations: string,
   cacheBustedPrefix: string | undefined,
-  credentials: string | undefined
+  credentials: string | undefined,
+  noPrompt: boolean
 ) => {
+  await predeployPrompt(Boolean(process.env.CI), noPrompt);
+
   const [domainName, s3Folder] = url.split("/");
 
   logger.info(
