@@ -346,6 +346,16 @@ export const setSimpleAuthBehavior = async (
   );
 };
 
+export const getCacheInvalidations = (
+  cacheInvalidations: string,
+  subFolder: string | undefined
+) =>
+  cacheInvalidations
+    .split(",")
+    .map(string => string.trim().replace(/$\//, ""))
+    .map(string => (subFolder ? `/${subFolder}/${string}` : `/${string}`))
+    .join(",");
+
 const updateLambdaFunctionAssociations = async (
   distributionId: string,
   DistributionConfig: DistributionConfig,
