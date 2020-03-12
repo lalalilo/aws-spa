@@ -2,7 +2,7 @@ version: 2
 jobs:
   build:
     docker:
-      - image: circleci/node:10.15
+      - image: circleci/node:12.16
 
     working_directory: ~/aws-spa
 
@@ -35,3 +35,11 @@ jobs:
       - run:
           name: Code coverage
           command: npx codecov
+
+      - run:
+          name: Build
+          command: yarn build
+
+      - run:
+          name: Release
+          command: npx semantic-release

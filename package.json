@@ -33,7 +33,6 @@
   "scripts": {
     "build": "babel src -d lib --extensions '.ts'",
     "prebuild": "yarn check-types && yarn test",
-    "prepublish": "yarn build",
     "run-cli": "babel-node --extensions '.ts' src/cli.ts",
     "check-types": "tsc",
     "test": "jest"
@@ -48,6 +47,12 @@
     "hooks": {
       "pre-commit": "yarn check-types"
     }
+  },
+  "release": {
+    "branches": [
+      "master",
+      "next"
+    ]
   },
   "dependencies": {
     "adm-zip": "^0.4.13",
@@ -76,6 +81,7 @@
     "husky": "^3.0.9",
     "jest": "^24.9.0",
     "rimraf": "^3.0.0",
+    "semantic-release": "^17.0.4",
     "typescript": "^3.7.2"
   }
 }
