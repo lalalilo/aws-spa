@@ -14,7 +14,8 @@ import {
   createCloudFrontDistribution,
   invalidateCloudfrontCache,
   DistributionIdentificationDetail,
-  setSimpleAuthBehavior
+  setSimpleAuthBehavior,
+  getCacheInvalidations
 } from "./cloudfront";
 import {
   findHostedZone,
@@ -101,5 +102,9 @@ export const deploy = async (
   }
 
   await syncToS3(folder, domainName, cacheBustedPrefix, s3Folder);
-  await invalidateCloudfrontCache(distribution.Id, cacheInvalidations, wait);
+  await invalidateCloudfrontCache(
+    distribution.Id,
+    getCacheInvalidations(cacheInvalidations, s3Folder),
+    wait
+  );
 };

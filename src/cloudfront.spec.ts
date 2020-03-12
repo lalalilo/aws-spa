@@ -5,7 +5,8 @@ import {
   invalidateCloudfrontCache,
   identifyingTag,
   createCloudFrontDistribution,
-  setSimpleAuthBehavior
+  setSimpleAuthBehavior,
+  getCacheInvalidations
 } from "./cloudfront";
 import { lambdaPrefix } from "./lambda";
 
@@ -296,6 +297,24 @@ describe("cloudfront", () => {
           LambdaFunctionARN: "some-arn:1"
         }
       ]);
+    });
+  });
+
+  describe("getCacheInvalidations", () => {
+    it.each([
+      { input: "index.html", expectedOutput: "/index.html" },
+      {
+        input: "index.html, hello.html",
+        subFolder: undefined,
+        expectedOutput: "/index.html,/hello.html"
+      },
+      {
+        input: "index.html",
+        subFolder: "some-branch",
+        expectedOutput: "/some-branch/index.html"
+      }
+    ])("add missing slash", ({ input, subFolder, expectedOutput }) => {
+      expect(getCacheInvalidations(input, subFolder)).toEqual(expectedOutput);
     });
   });
 });
