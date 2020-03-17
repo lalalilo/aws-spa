@@ -352,7 +352,7 @@ export const getCacheInvalidations = (
 ) =>
   cacheInvalidations
     .split(",")
-    .map(string => string.trim().replace(/$\//, ""))
+    .map(string => string.trim().replace(/^\//, ""))
     .map(string => (subFolder ? `/${subFolder}/${string}` : `/${string}`))
     .join(",");
 

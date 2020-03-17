@@ -303,6 +303,7 @@ describe("cloudfront", () => {
   describe("getCacheInvalidations", () => {
     it.each([
       { input: "index.html", expectedOutput: "/index.html" },
+      { input: "/index.html", expectedOutput: "/index.html" },
       {
         input: "index.html, hello.html",
         subFolder: undefined,
