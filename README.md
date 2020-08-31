@@ -80,6 +80,7 @@ If a CloudFront distribution with this S3 bucket already exists, the script will
 ## IAM
 
 - cloudfront:CreateDistribution
+- cloudfront:ListDistributions
 
 **TODO**: complete missing policies
 
