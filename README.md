@@ -81,6 +81,10 @@ If a CloudFront distribution with this S3 bucket already exists, the script will
 
 - cloudfront:CreateDistribution
 - cloudfront:ListDistributions
+- cloudfront:ListTagsForResource
+- cloudfront:TagResource
+- cloudfront:GetDistributionConfig
+- cloudfront:CreateInvalidation
 
 **TODO**: complete missing policies
 
