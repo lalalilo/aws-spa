@@ -59,7 +59,7 @@
     "aws-sdk": "^2.569.0",
     "inquirer": "^7.0.0",
     "mime-types": "^2.1.24",
-    "yargs": "^14.2.0"
+    "yargs": "^16.0.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.7.0",
