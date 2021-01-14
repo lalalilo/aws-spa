@@ -56,7 +56,7 @@
   },
   "dependencies": {
     "adm-zip": "^0.4.13",
-    "aws-sdk": "^2.569.0",
+    "aws-sdk": "^2.814.0",
     "inquirer": "^7.0.0",
     "mime-types": "^2.1.24",
     "yargs": "^14.2.0"
