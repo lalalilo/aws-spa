@@ -23,7 +23,7 @@ export const deploySimpleAuthLambda = async (
         FunctionName: name,
         Handler: "simple-auth.handler",
         Role: roleARN,
-        Runtime: "nodejs8.10",
+        Runtime: "nodejs",
         Description: getDescription(credentials),
         Publish: true
       })
