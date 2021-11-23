@@ -93,6 +93,7 @@ If a CloudFront distribution with this S3 bucket already exists, the script will
 - lambda:GetFunction
 - lambda:EnableReplication\*
 - iam:CreateServiceLinkedRole
+- iam:CreateRole on resource: arn:aws:iam::<account_id>:role/aws-spa-basic-auth-\*
 
 ## FAQ
 
