@@ -35,7 +35,8 @@
     "prebuild": "yarn check-types && yarn test",
     "run-cli": "babel-node --extensions '.ts' src/cli.ts",
     "check-types": "tsc",
-    "test": "jest"
+    "test": "jest",
+    "prepare": "husky install"
   },
   "bin": {
     "aws-spa": "./lib/cli.js"
@@ -43,11 +44,6 @@
   "files": [
     "lib/**/*"
   ],
-  "husky": {
-    "hooks": {
-      "pre-commit": "yarn check-types"
-    }
-  },
   "release": {
     "branches": [
       "master",
@@ -78,7 +74,7 @@
     "@types/rimraf": "^3.0.2",
     "@types/yargs": "^17.0.12",
     "codecov": "^3.8.3",
-    "husky": "^3.0.9",
+    "husky": "^8.0.1",
     "jest": "^24.9.0",
     "rimraf": "^3.0.2",
     "semantic-release": "^19.0.5",
