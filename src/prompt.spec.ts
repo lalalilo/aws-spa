@@ -1,7 +1,12 @@
-import * as inquirer from "inquirer";
+import inquirer from "inquirer";
 import { predeployPrompt } from "./prompt";
 
-jest.mock("inquirer");
+jest.mock("inquirer", () => {
+  return {
+    __esModule: true,
+    default: { prompt: jest.fn() },
+  };
+});
 
 describe("prompt", () => {
   beforeEach(() => {

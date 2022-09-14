@@ -1,5 +1,5 @@
 import * as fs from "fs";
-import * as inquirer from "inquirer";
+import inquirer from "inquirer";
 import { s3 } from "./aws-services";
 import * as fsHelper from "./fs-helper";
 import { logger } from "./logger";
@@ -16,7 +16,12 @@ import {
 import { awsReject, awsResolve } from "./test-helper";
 
 jest.mock("fs");
-jest.mock("inquirer");
+jest.mock("inquirer", () => {
+  return {
+    __esModule: true,
+    default: { prompt: jest.fn() },
+  };
+});
 
 describe("s3", () => {
   const logSpy = jest.spyOn(logger, "info");

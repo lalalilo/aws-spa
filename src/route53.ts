@@ -1,9 +1,10 @@
 import { ResourceRecord } from "aws-sdk/clients/acm";
 import { HostedZone } from "aws-sdk/clients/route53";
-import { prompt } from "inquirer";
+import inquirer from "inquirer";
 import { getAll } from "./aws-helper";
 import { route53 } from "./aws-services";
 import { logger } from "./logger";
+
 export const findHostedZone = async (domainName: string) => {
   logger.info(
     `[route53] 🔍 Looking for a hosted zone matching "${domainName}"...`
@@ -80,7 +81,7 @@ export const needsUpdateRecord = async (
         return false;
       }
 
-      const { continueUpdate } = await prompt([
+      const { continueUpdate } = await inquirer.prompt([
         {
           type: "confirm",
           name: "continueUpdate",
@@ -107,7 +108,7 @@ export const needsUpdateRecord = async (
         return false;
       }
 
-      const { continueUpdate } = await prompt([
+      const { continueUpdate } = await inquirer.prompt([
         {
           type: "confirm",
           name: "continueUpdate",
