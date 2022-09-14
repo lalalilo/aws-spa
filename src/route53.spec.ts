@@ -1,6 +1,13 @@
 import { route53 } from "./aws-services";
+import { createHostedZone, findHostedZone, updateRecord } from "./route53";
 import { awsResolve } from "./test-helper";
-import { findHostedZone, createHostedZone, updateRecord } from "./route53";
+
+jest.mock("inquirer", () => {
+  return {
+    __esModule: true,
+    default: { prompt: jest.fn() },
+  };
+});
 
 describe("route53", () => {
   describe("findHostedZone", () => {
@@ -16,7 +23,7 @@ describe("route53", () => {
         .mockReturnValueOnce(
           awsResolve({
             HostedZones: [{ Name: "example1.com" }],
-            NextMarker: "xxx"
+            NextMarker: "xxx",
           })
         )
         .mockReturnValueOnce(awsResolve({ HostedZones: [matchingHostedZone] }));
@@ -30,7 +37,7 @@ describe("route53", () => {
       const matchingHostedZone = { Name: "example.com." };
       listHostedZonesMock.mockReturnValue(
         awsResolve({
-          HostedZones: [matchingHostedZone]
+          HostedZones: [matchingHostedZone],
         })
       );
 
@@ -42,7 +49,7 @@ describe("route53", () => {
     it("should return null if there is no hosted found", async () => {
       listHostedZonesMock.mockReturnValue(
         awsResolve({
-          HostedZones: [{ Name: "example2.com." }]
+          HostedZones: [{ Name: "example2.com." }],
         })
       );
 

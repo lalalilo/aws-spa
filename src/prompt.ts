@@ -1,4 +1,4 @@
-import { prompt } from "inquirer";
+import inquirer from "inquirer";
 import { logger } from "./logger";
 
 export const predeployPrompt = async (ciEnv: boolean, noPrompt: boolean) => {
@@ -10,7 +10,7 @@ export const predeployPrompt = async (ciEnv: boolean, noPrompt: boolean) => {
     `💡 If you don\'t want this message to prompt, either set CI=true in your env variables or use the "--noPrompt" option.`
   );
 
-  const { continueDeploy } = await prompt([
+  const { continueDeploy } = await inquirer.prompt([
     {
       type: "confirm",
       name: "continueDeploy",

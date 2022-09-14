@@ -61,7 +61,7 @@ aws-spa deploy app.example.com/$(git branch | grep * | cut -d ' ' -f2)
 
 - `--wait`: Wait for CloudFront distribution to be deployed & cache invalidation to be completed. If you choose not to wait (default), you won't see site changes as soon as the command ends.
 - `--directory`: The directory where the static files have been generated. It must contain an index.html. Default is `build`.
-- `--credentials`: This option enables basic auth for the full s3 bucket (even if the domainName specifies a path). Credentials must be of the form "username:password". Basic auth is the recommened way to avoid search engine indexation of non-production apps (such as staging). You can also set credentials through the environment variable "AWS_SPA_CREDENTIALS" (the argument will override the environment variable if both are defined)
+- `--credentials`: This option enables basic auth for the full s3 bucket (even if the domainName specifies a path). Credentials must be of the form "username:password". Basic auth is the recommended way to avoid search engine indexation of non-production apps (such as staging). You can also set credentials through the environment variable "AWS_SPA_CREDENTIALS" (the argument will override the environment variable if both are defined)
 - `--cacheInvalidation`: cache invalidation to be done in CloudFront. Default is `*`: all files are invalidated. For a `create-react-app` app you only need to invalidate `/index.html`
 - `--cacheBustedPrefix`: a folder where files are suffixed with a hash (cash busting). Their `cache-control` value is set to `max-age=31536000`. For a `create-react-app` app you can specify `static/`.
 - `--noPrompt`: Disable confirm message that prompts on non CI environments (env CI=true).

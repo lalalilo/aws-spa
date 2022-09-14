@@ -1,6 +1,13 @@
-import { domainNameMatch, getCertificateARN, createCertificate } from "./acm";
+import { createCertificate, domainNameMatch, getCertificateARN } from "./acm";
 import { acm, route53 } from "./aws-services";
 import { awsResolve } from "./test-helper";
+
+jest.mock("inquirer", () => {
+  return {
+    __esModule: true,
+    default: { prompt: jest.fn() },
+  };
+});
 
 describe("acm", () => {
   describe("getCertificateARN", () => {
@@ -19,9 +26,9 @@ describe("acm", () => {
         awsResolve({
           CertificateSummaryList: [
             {
-              CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx"
-            }
-          ]
+              CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx",
+            },
+          ],
         })
       );
       describeCertificateMock.mockReturnValue(
@@ -29,8 +36,8 @@ describe("acm", () => {
           Certificate: {
             Status: "ISSUED",
             DomainName: "*.example.com",
-            CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx"
-          }
+            CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx",
+          },
         })
       );
       const arn = await getCertificateARN("hello.example.com");
@@ -45,10 +52,10 @@ describe("acm", () => {
             CertificateSummaryList: [
               {
                 CertificateArn:
-                  "arn:aws:acm:us-east-1:123456789:certificate/xxx"
-              }
+                  "arn:aws:acm:us-east-1:123456789:certificate/xxx",
+              },
             ],
-            NextToken: "xxx"
+            NextToken: "xxx",
           })
         )
         .mockReturnValueOnce(
@@ -56,9 +63,9 @@ describe("acm", () => {
             CertificateSummaryList: [
               {
                 CertificateArn:
-                  "arn:aws:acm:us-east-1:123456789:certificate/yyy"
-              }
-            ]
+                  "arn:aws:acm:us-east-1:123456789:certificate/yyy",
+              },
+            ],
           })
         );
       describeCertificateMock
@@ -67,8 +74,8 @@ describe("acm", () => {
             Certificate: {
               Status: "ISSUED",
               DomainName: "hello2.example.com",
-              CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx"
-            }
+              CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx",
+            },
           })
         )
         .mockReturnValueOnce(
@@ -76,8 +83,8 @@ describe("acm", () => {
             Certificate: {
               Status: "ISSUED",
               DomainName: "*.example.com",
-              CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/yyy"
-            }
+              CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/yyy",
+            },
           })
         );
       const arn = await getCertificateARN("hello.example.com");
@@ -90,9 +97,9 @@ describe("acm", () => {
         awsResolve({
           CertificateSummaryList: [
             {
-              CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx"
-            }
-          ]
+              CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx",
+            },
+          ],
         })
       );
       describeCertificateMock.mockReturnValue(
@@ -101,8 +108,8 @@ describe("acm", () => {
             DomainName: "example.com",
             Status: "ISSUED",
             CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx",
-            SubjectAlternativeNames: ["staging.example.com", "*.example.com"]
-          }
+            SubjectAlternativeNames: ["staging.example.com", "*.example.com"],
+          },
         })
       );
       const arn = await getCertificateARN("hello.example.com");
@@ -114,9 +121,9 @@ describe("acm", () => {
         awsResolve({
           CertificateSummaryList: [
             {
-              CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx"
-            }
-          ]
+              CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx",
+            },
+          ],
         })
       );
       describeCertificateMock.mockReturnValue(
@@ -124,8 +131,8 @@ describe("acm", () => {
           Certificate: {
             DomainName: "*.example.com",
             Status: "REVOKED",
-            CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx"
-          }
+            CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx",
+          },
         })
       );
       const arn = await getCertificateARN("hello.example.com");
@@ -137,9 +144,9 @@ describe("acm", () => {
         awsResolve({
           CertificateSummaryList: [
             {
-              CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx"
-            }
-          ]
+              CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx",
+            },
+          ],
         })
       );
       describeCertificateMock.mockReturnValue(
@@ -147,8 +154,8 @@ describe("acm", () => {
           Certificate: {
             DomainName: "example.com",
             Status: "ISSUED",
-            CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx"
-          }
+            CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx",
+          },
         })
       );
       const arn = await getCertificateARN("hello.example.com");
@@ -161,13 +168,13 @@ describe("acm", () => {
           CertificateSummaryList: [
             {
               CertificateArn:
-                "arn:aws:acm:us-east-1:123456789:certificate/pending"
+                "arn:aws:acm:us-east-1:123456789:certificate/pending",
             },
             {
               CertificateArn:
-                "arn:aws:acm:us-east-1:123456789:certificate/issued"
-            }
-          ]
+                "arn:aws:acm:us-east-1:123456789:certificate/issued",
+            },
+          ],
         })
       );
       describeCertificateMock
@@ -177,8 +184,8 @@ describe("acm", () => {
               DomainName: "*.example.com",
               Status: "PENDING_VALIDATION",
               CertificateArn:
-                "arn:aws:acm:us-east-1:123456789:certificate/pending"
-            }
+                "arn:aws:acm:us-east-1:123456789:certificate/pending",
+            },
           })
         )
         .mockReturnValueOnce(
@@ -187,8 +194,8 @@ describe("acm", () => {
               DomainName: "hello.example.com",
               Status: "ISSUED",
               CertificateArn:
-                "arn:aws:acm:us-east-1:123456789:certificate/issued"
-            }
+                "arn:aws:acm:us-east-1:123456789:certificate/issued",
+            },
           })
         );
       const arn = await getCertificateARN("hello.example.com");
@@ -201,9 +208,9 @@ describe("acm", () => {
           CertificateSummaryList: [
             {
               CertificateArn:
-                "arn:aws:acm:us-east-1:123456789:certificate/pending"
-            }
-          ]
+                "arn:aws:acm:us-east-1:123456789:certificate/pending",
+            },
+          ],
         })
       );
       describeCertificateMock.mockReturnValue(
@@ -212,8 +219,8 @@ describe("acm", () => {
             DomainName: "*.example.com",
             Status: "PENDING_VALIDATION",
             CertificateArn:
-              "arn:aws:acm:us-east-1:123456789:certificate/pending"
-          }
+              "arn:aws:acm:us-east-1:123456789:certificate/pending",
+          },
         })
       );
       waitForMock.mockReturnValue(awsResolve());
@@ -270,7 +277,7 @@ describe("acm", () => {
     it("should request a certificate", async () => {
       requestCertificateMock.mockReturnValue(
         awsResolve({
-          CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx"
+          CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx",
         })
       );
       describeCertificateMock.mockReturnValue(
@@ -282,11 +289,11 @@ describe("acm", () => {
                 ResourceRecord: {
                   Name: "_sOmESTrAnGeChArAcTeRs.example.com",
                   Type: "CNAME",
-                  Value: "_sOmESTrAnGeChArAcTeRs"
-                }
-              }
-            ]
-          }
+                  Value: "_sOmESTrAnGeChArAcTeRs",
+                },
+              },
+            ],
+          },
         })
       );
       changeResourceRecordSetsMock.mockReturnValue(awsResolve());
@@ -299,7 +306,7 @@ describe("acm", () => {
       expect(requestCertificateParams.ValidationMethod).toEqual("DNS");
       expect(waitForMock).toHaveBeenCalledWith("certificateValidated", {
         CertificateArn: "arn:aws:acm:us-east-1:123456789:certificate/xxx",
-        $waiter: { delay: 10 }
+        $waiter: { delay: 10 },
       });
 
       expect(changeResourceRecordSetsMock).toHaveBeenCalledTimes(1);
