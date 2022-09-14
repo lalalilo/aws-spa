@@ -1,17 +1,16 @@
 import { Tag } from "aws-sdk/clients/s3";
 import { createReadStream } from "fs";
+import inquirer from "inquirer";
 import { lookup } from "mime-types";
-import { prompt } from "inquirer";
 
 import { s3 } from "./aws-services";
 import { readRecursively } from "./fs-helper";
 import { logger } from "./logger";
-
 export const doesS3BucketExists = async (bucketName: string) => {
   try {
     logger.info(`[S3] 🔍 Looking for bucket "${bucketName}"...`);
     await s3.headBucket({ Bucket: bucketName }).promise();
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode === 404) {
       logger.info(`[S3] 😬 Bucket "${bucketName}" not found...`);
       return false;
@@ -29,10 +28,10 @@ export const createBucket = async (bucketName: string) => {
   try {
     await s3
       .createBucket({
-        Bucket: bucketName
+        Bucket: bucketName,
       })
       .promise();
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode === 409) {
       throw new Error(
         "[S3] It seems that a bucket already exists but in an unsupported region... You should delete it first."
@@ -52,7 +51,7 @@ export const confirmBucketManagement = async (bucketName: string) => {
       .promise();
 
     const tag = TagSet.find(
-      _tag =>
+      (_tag) =>
         _tag.Key === identifyingTag.Key && _tag.Value === identifyingTag.Value
     );
 
@@ -62,19 +61,19 @@ export const confirmBucketManagement = async (bucketName: string) => {
       );
       return true;
     }
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode !== 404) {
       throw error;
     }
   }
 
-  const { continueUpdate } = await prompt([
+  const { continueUpdate } = await inquirer.prompt([
     {
       type: "confirm",
       name: "continueUpdate",
       message: `[S3] Bucket "${bucketName}" is not yet managed by aws-spa. Would you like it to be modified (public access & website config) & managed by aws-spa?`,
-      default: false
-    }
+      default: false,
+    },
   ]);
   if (continueUpdate) {
     return true;
@@ -90,8 +89,8 @@ export const tagBucket = async (bucketName: string) => {
     .putBucketTagging({
       Bucket: bucketName,
       Tagging: {
-        TagSet: [identifyingTag]
-      }
+        TagSet: [identifyingTag],
+      },
     })
     .promise();
 };
@@ -105,12 +104,12 @@ export const setBucketWebsite = (bucketName: string) => {
       Bucket: bucketName,
       WebsiteConfiguration: {
         ErrorDocument: {
-          Key: "index.html"
+          Key: "index.html",
         },
         IndexDocument: {
-          Suffix: "index.html"
-        }
-      }
+          Suffix: "index.html",
+        },
+      },
     })
     .promise();
 };
@@ -126,23 +125,23 @@ export const setBucketPolicy = (bucketName: string) => {
             Sid: "AllowPublicRead",
             Effect: "Allow",
             Principal: {
-              AWS: "*"
+              AWS: "*",
             },
             Action: "s3:GetObject",
-            Resource: `arn:aws:s3:::${bucketName}/*`
-          }
-        ]
-      })
+            Resource: `arn:aws:s3:::${bucketName}/*`,
+          },
+        ],
+      }),
     })
     .promise();
 };
 
 export const identifyingTag: Tag = {
   Key: "managed-by-aws-spa",
-  Value: "v1"
+  Value: "v1",
 };
 
-export const syncToS3 = function(
+export const syncToS3 = function (
   folder: string,
   bucketName: string,
   cacheBustedPrefix: string | undefined,
@@ -152,7 +151,7 @@ export const syncToS3 = function(
 
   const filesToUpload = readRecursively(folder);
   return Promise.all(
-    filesToUpload.map(file => {
+    filesToUpload.map((file) => {
       const filenameParts = file.split(".");
       const key = file.replace(`${folder}/`, "");
 
@@ -165,7 +164,7 @@ export const syncToS3 = function(
           CacheControl: getCacheControl(key, cacheBustedPrefix),
           ContentType:
             lookup(filenameParts[filenameParts.length - 1]) ||
-            "application/octet-stream"
+            "application/octet-stream",
         })
         .promise();
     })

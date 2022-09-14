@@ -16,8 +16,8 @@ export const predeployPrompt = async (ciEnv: boolean, noPrompt: boolean) => {
       name: "continueDeploy",
       message:
         "⚠️  It looks like you're attempting to deploy from a non CI environment. Are you sure you built the SPA correctly (env variables, run tests, ...)?\n\n",
-      default: false
-    }
+      default: false,
+    },
   ]);
 
   if (!continueDeploy) {
