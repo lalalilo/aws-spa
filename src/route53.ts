@@ -35,7 +35,7 @@ export const findHostedZone = async (domainName: string) => {
         .map((hostedZone) => `"${hostedZone.Name}"`)
         .join(
           ", "
-        )}. There first hosted zone will be used. If this is an issue, please open an issue on https://github.com/nicgirault/aws-spa/issues`
+        )}. There first hosted zone will be used. If this is an issue, please open an issue on https://github.com/lalalilo/aws-spa/issues`
     );
     return matchingHostedZones[0];
   }

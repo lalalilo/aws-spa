@@ -5,7 +5,7 @@
   "main": "index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nicgirault/aws-spa.git"
+    "url": "git+https://github.com/lalalilo/aws-spa.git"
   },
   "author": "nicgirault <nic.girault@gmail.com>",
   "keywords": [
@@ -26,9 +26,9 @@
     "aws"
   ],
   "bugs": {
-    "url": "https://github.com/nicgirault/aws-spa/issues"
+    "url": "https://github.com/lalalilo/aws-spa/issues"
   },
-  "homepage": "https://github.com/nicgirault/aws-spa#readme",
+  "homepage": "https://github.com/lalalilo/aws-spa#readme",
   "license": "MIT",
   "scripts": {
     "build": "babel src -d lib --extensions '.ts'",
