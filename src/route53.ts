@@ -1,9 +1,9 @@
-import { prompt } from "inquirer";
+import { ResourceRecord } from "aws-sdk/clients/acm";
+import { HostedZone } from "aws-sdk/clients/route53";
+import inquirer from "inquirer";
+import { getAll } from "./aws-helper";
 import { route53 } from "./aws-services";
 import { logger } from "./logger";
-import { getAll } from "./aws-helper";
-import { HostedZone } from "aws-sdk/clients/route53";
-import { ResourceRecord } from "aws-sdk/clients/acm";
 
 export const findHostedZone = async (domainName: string) => {
   logger.info(
@@ -18,7 +18,7 @@ export const findHostedZone = async (domainName: string) => {
     return { items: HostedZones, nextMarker: NextMarker };
   });
 
-  const matchingHostedZones = hostedZones.filter(hostedZone =>
+  const matchingHostedZones = hostedZones.filter((hostedZone) =>
     domainName.endsWith(hostedZone.Name.replace(/\.$/g, ""))
   );
 
@@ -32,7 +32,7 @@ export const findHostedZone = async (domainName: string) => {
   if (matchingHostedZones.length > 1) {
     logger.warn(
       `[route53] ⚠️ Found multiple hosted zones: ${matchingHostedZones
-        .map(hostedZone => `"${hostedZone.Name}"`)
+        .map((hostedZone) => `"${hostedZone.Name}"`)
         .join(
           ", "
         )}. There first hosted zone will be used. If this is an issue, please open an issue on https://github.com/nicgirault/aws-spa/issues`
@@ -49,7 +49,7 @@ export const createHostedZone = async (domainName: string) => {
   const { HostedZone } = await route53
     .createHostedZone({
       Name: domainName,
-      CallerReference: `aws-spa-${Date.now()}`
+      CallerReference: `aws-spa-${Date.now()}`,
     })
     .promise();
 
@@ -66,7 +66,7 @@ export const needsUpdateRecord = async (
   // todo: handle many records
   const { ResourceRecordSets } = await route53
     .listResourceRecordSets({
-      HostedZoneId: hostedZoneId
+      HostedZoneId: hostedZoneId,
     })
     .promise();
 
@@ -81,15 +81,13 @@ export const needsUpdateRecord = async (
         return false;
       }
 
-      const { continueUpdate } = await prompt([
+      const { continueUpdate } = await inquirer.prompt([
         {
           type: "confirm",
           name: "continueUpdate",
-          message: `[Route53] CNAME Record for "${domainName}" value is "${
-            record.ResourceRecords[0].Value
-          }". Would you like to update it to "${cloudfrontDomainName}."?`,
-          default: false
-        }
+          message: `[Route53] CNAME Record for "${domainName}" value is "${record.ResourceRecords[0].Value}". Would you like to update it to "${cloudfrontDomainName}."?`,
+          default: false,
+        },
       ]);
       if (continueUpdate) {
         return true;
@@ -110,17 +108,13 @@ export const needsUpdateRecord = async (
         return false;
       }
 
-      const { continueUpdate } = await prompt([
+      const { continueUpdate } = await inquirer.prompt([
         {
           type: "confirm",
           name: "continueUpdate",
-          message: `[Route53] A Record for "${domainName}" value is "${
-            record.AliasTarget.HostedZoneId
-          }:${record.AliasTarget.DNSName}". Would you like to update it to "${
-            record.AliasTarget.HostedZoneId
-          }:${cloudfrontDomainName}."?`,
-          default: false
-        }
+          message: `[Route53] A Record for "${domainName}" value is "${record.AliasTarget.HostedZoneId}:${record.AliasTarget.DNSName}". Would you like to update it to "${record.AliasTarget.HostedZoneId}:${cloudfrontDomainName}."?`,
+          default: false,
+        },
       ]);
       if (continueUpdate) {
         return true;
@@ -157,13 +151,13 @@ export const updateRecord = async (
               AliasTarget: {
                 HostedZoneId: "Z2FDTNDATAQYW2", // https://docs.aws.amazon.com/general/latest/gr/rande.html#cf_region
                 DNSName: `${cloudfrontDomainName}.`,
-                EvaluateTargetHealth: false
+                EvaluateTargetHealth: false,
               },
-              Type: "A"
-            }
-          }
-        ]
-      }
+              Type: "A",
+            },
+          },
+        ],
+      },
     })
     .promise();
 };
@@ -173,9 +167,7 @@ export const createCertificateValidationDNSRecord = async (
   hostedZoneId: string
 ) => {
   logger.info(
-    `[Route53] Creating record ${record.Type}:${record.Name}=${
-      record.Value
-    } to validate SSL certificate`
+    `[Route53] Creating record ${record.Type}:${record.Name}=${record.Value} to validate SSL certificate`
   );
   await route53
     .changeResourceRecordSets({
@@ -188,11 +180,11 @@ export const createCertificateValidationDNSRecord = async (
               Name: record.Name,
               Type: record.Type,
               ResourceRecords: [{ Value: record.Value }],
-              TTL: 3600
-            }
-          }
-        ]
-      }
+              TTL: 3600,
+            },
+          },
+        ],
+      },
     })
     .promise();
 };

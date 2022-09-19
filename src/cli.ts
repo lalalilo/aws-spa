@@ -69,7 +69,7 @@ yargs
         );
         logger.info("✅ done!");
         process.exit(0);
-      } catch (error) {
+      } catch (error: any) {
         logger.error(`💥 ${error.message}`);
         process.exit(1);
       }

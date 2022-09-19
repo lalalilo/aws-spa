@@ -1,22 +1,27 @@
-import {
-  createBucket,
-  identifyingTag,
-  setBucketWebsite,
-  setBucketPolicy,
-  doesS3BucketExists,
-  syncToS3,
-  confirmBucketManagement,
-  tagBucket
-} from "./s3";
+import * as fs from "fs";
+import inquirer from "inquirer";
 import { s3 } from "./aws-services";
 import * as fsHelper from "./fs-helper";
-import * as fs from "fs";
-import * as inquirer from "inquirer";
-import { awsResolve, awsReject } from "./test-helper";
 import { logger } from "./logger";
+import {
+  confirmBucketManagement,
+  createBucket,
+  doesS3BucketExists,
+  identifyingTag,
+  setBucketPolicy,
+  setBucketWebsite,
+  syncToS3,
+  tagBucket,
+} from "./s3";
+import { awsReject, awsResolve } from "./test-helper";
 
 jest.mock("fs");
-jest.mock("inquirer");
+jest.mock("inquirer", () => {
+  return {
+    __esModule: true,
+    default: { prompt: jest.fn() },
+  };
+});
 
 describe("s3", () => {
   const logSpy = jest.spyOn(logger, "info");
@@ -52,7 +57,7 @@ describe("s3", () => {
       try {
         await createBucket("some-bucket");
         throw new Error("This test should have failed");
-      } catch (error) {
+      } catch (error: any) {
         expect(error.message).toEqual("some error");
       }
     });
@@ -63,7 +68,7 @@ describe("s3", () => {
       try {
         await createBucket("some-bucket");
         throw new Error("This test should have failed");
-      } catch (error) {
+      } catch (error: any) {
         expect(error.message).toContain("bucket already exists");
       }
     });
@@ -99,7 +104,7 @@ describe("s3", () => {
       try {
         await setBucketWebsite("some-bucket");
         throw new Error("This test should have failed");
-      } catch (error) {
+      } catch (error: any) {
         expect(error.message).toEqual("some error");
       }
     });
@@ -141,7 +146,7 @@ describe("s3", () => {
       try {
         await setBucketPolicy("some-bucket");
         throw new Error("This test should have failed");
-      } catch (error) {
+      } catch (error: any) {
         expect(error.message).toEqual("some error");
       }
     });
@@ -179,7 +184,7 @@ describe("s3", () => {
       try {
         await tagBucket("some-bucket");
         throw new Error("This test should have failed");
-      } catch (error) {
+      } catch (error: any) {
         expect(error.message).toEqual("some error");
       }
     });
@@ -214,7 +219,7 @@ describe("s3", () => {
       try {
         await doesS3BucketExists("some-bucket");
         throw new Error("This test should have failed");
-      } catch (error) {
+      } catch (error: any) {
         expect(error.message).toEqual("some message");
       }
     });
@@ -261,7 +266,7 @@ describe("s3", () => {
       try {
         await confirmBucketManagement("some bucket");
         throw new Error("this test should have failed");
-      } catch (error) {
+      } catch (error: any) {
         expect(error.message).toEqual("fetch tagging error");
       }
     });
@@ -272,7 +277,7 @@ describe("s3", () => {
       try {
         await confirmBucketManagement("some bucket");
         throw new Error("this test should have failed");
-      } catch (error) {
+      } catch (error: any) {
         expect(error.message).not.toEqual("this test should have failed");
       }
     });
@@ -284,8 +289,8 @@ describe("s3", () => {
       "index.html",
       "static/1.bbbbbb.css",
       "static/1.bbbbbb.js",
-      "static/main.aaaaaa.js"
-    ].map(path => `some-folder/${path}`);
+      "static/main.aaaaaa.js",
+    ].map((path) => `some-folder/${path}`);
     const readRecursivelyMock = jest
       .spyOn(fsHelper, "readRecursively")
       .mockReturnValue(someFiles);

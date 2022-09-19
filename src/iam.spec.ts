@@ -1,6 +1,6 @@
-import { getRoleARNForBasicLambdaExectution } from "./iam";
 import { iam } from "./aws-services";
-import { awsResolve, awsReject } from "./test-helper";
+import { getRoleARNForBasicLambdaExectution } from "./iam";
+import { awsReject, awsResolve } from "./test-helper";
 
 describe("IAM", () => {
   const getRole = jest.spyOn(iam, "getRole");
@@ -26,7 +26,7 @@ describe("IAM", () => {
       getRole.mockReturnValueOnce(awsReject(400, "some message"));
       try {
         await getRoleARNForBasicLambdaExectution("some-role");
-      } catch (error) {
+      } catch (error: any) {
         expect(error.message).toEqual("some message");
       }
     });

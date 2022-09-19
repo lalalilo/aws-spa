@@ -10,7 +10,7 @@ export const getRoleARNForBasicLambdaExectution = async (
     const { Role } = await iam.getRole({ RoleName: roleName }).promise();
     logger.info(`[IAM] 👍 ${roleName} found`);
     return Role.Arn;
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode !== 404) {
       throw error;
     }
@@ -23,13 +23,13 @@ export const getRoleARNForBasicLambdaExectution = async (
             {
               Effect: "Allow",
               Principal: {
-                Service: ["lambda.amazonaws.com", "edgelambda.amazonaws.com"]
+                Service: ["lambda.amazonaws.com", "edgelambda.amazonaws.com"],
               },
-              Action: "sts:AssumeRole"
-            }
-          ]
+              Action: "sts:AssumeRole",
+            },
+          ],
         }),
-        RoleName: roleName
+        RoleName: roleName,
       })
       .promise();
 
@@ -37,14 +37,14 @@ export const getRoleARNForBasicLambdaExectution = async (
       .attachRolePolicy({
         PolicyArn:
           "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-        RoleName: roleName
+        RoleName: roleName,
       })
       .promise();
 
     logger.info(`[IAM] 👍 ${roleName} created`);
 
     // timeout to avoid "The role defined for the function cannot be assumed by Lambda"
-    await new Promise(resolve => setTimeout(resolve, waitAfterCreate));
+    await new Promise((resolve) => setTimeout(resolve, waitAfterCreate));
     return Role.Arn;
   }
 };

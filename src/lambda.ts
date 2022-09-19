@@ -1,7 +1,7 @@
 import AdmZip from "adm-zip";
-import { logger } from "./logger";
 import { lambda } from "./aws-services";
 import { getRoleARNForBasicLambdaExectution } from "./iam";
+import { logger } from "./logger";
 
 export const lambdaPrefix = `aws-spa-basic-auth-`;
 
@@ -18,25 +18,23 @@ export const deploySimpleAuthLambda = async (
     await lambda
       .createFunction({
         Code: {
-          ZipFile: getZippedCode(credentials)
+          ZipFile: getZippedCode(credentials),
         },
         FunctionName: name,
         Handler: "simple-auth.handler",
         Role: roleARN,
         Runtime: "nodejs14.x",
         Description: getDescription(credentials),
-        Publish: true
+        Publish: true,
       })
       .promise();
     logger.info(`[Lambda] 👍 lambda created`);
   }
 
   logger.info(`[Lambda] 🔍 Checking if credentials changed...`);
-  const {
-    FunctionArn,
-    Description,
-    Version
-  } = await lambda.getFunctionConfiguration({ FunctionName: name }).promise();
+  const { FunctionArn, Description, Version } = await lambda
+    .getFunctionConfiguration({ FunctionName: name })
+    .promise();
 
   if (Description && Description === getDescription(credentials)) {
     logger.info(`[Lambda] 👍 credentials didn't changed. Everything is fine.`);
@@ -48,13 +46,13 @@ export const deploySimpleAuthLambda = async (
     .updateFunctionCode({
       FunctionName: name,
       ZipFile: getZippedCode(credentials),
-      Publish: true
+      Publish: true,
     })
     .promise();
   await lambda
     .updateFunctionConfiguration({
       FunctionName: name,
-      Description: getDescription(credentials)
+      Description: getDescription(credentials),
     })
     .promise();
 
@@ -68,13 +66,13 @@ const doesFunctionExists = async (functionName: string) => {
 
     await lambda
       .getFunction({
-        FunctionName: functionName
+        FunctionName: functionName,
       })
       .promise();
 
     logger.info(`[Lambda] 👍 lambda function found`);
     return true;
-  } catch (error) {
+  } catch (error: any) {
     if (error.statusCode === 404) {
       logger.info(`[Lambda] 😬 No lambda found`);
       return false;
