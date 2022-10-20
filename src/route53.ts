@@ -63,10 +63,10 @@ export const needsUpdateRecord = async (
 ) => {
   logger.info(`[route53] 🔍 Looking for a matching record...`);
 
-  // todo: handle many records
   const { ResourceRecordSets } = await route53
     .listResourceRecordSets({
       HostedZoneId: hostedZoneId,
+      StartRecordName: domainName,
     })
     .promise();
 
