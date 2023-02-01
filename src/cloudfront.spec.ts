@@ -1,12 +1,13 @@
 import { cloudfront } from "./aws-services";
-import { awsResolve } from "./test-helper";
+import { awsReject, awsResolve } from "./test-helper";
 import {
   findDeployedCloudfrontDistribution,
   invalidateCloudfrontCache,
   identifyingTag,
   createCloudFrontDistribution,
   setSimpleAuthBehavior,
-  getCacheInvalidations
+  getCacheInvalidations,
+  invalidateCloudfrontCacheWithRetry
 } from "./cloudfront";
 import { lambdaPrefix } from "./lambda";
 
@@ -151,6 +152,51 @@ describe("cloudfront", () => {
       );
       expect(waitForMock).toHaveBeenCalledTimes(1);
       expect(waitForMock.mock.calls[0][0]).toEqual("invalidationCompleted");
+    });
+  });
+
+  describe("invalidateCloudfrontCacheWithRetry", () => {
+    const createInvalidationMock = jest.spyOn(cloudfront, "createInvalidation");
+    const waitForMock = jest.spyOn(cloudfront, "waitFor");
+
+    afterEach(() => {
+      createInvalidationMock.mockReset();
+      waitForMock.mockReset();
+    });
+    it("should retry once", async () => {
+      createInvalidationMock
+        .mockReturnValueOnce(awsReject(1))
+        .mockReturnValueOnce(awsResolve({ Invalidation: {} }));
+
+      await invalidateCloudfrontCacheWithRetry(
+        "some-distribution-id",
+        "index.html, static/*"
+      );
+
+      expect(createInvalidationMock).toHaveBeenCalledTimes(2);
+    });
+
+    it("should retry 5 times at most", async () => {
+      createInvalidationMock
+        .mockReturnValueOnce(awsReject(1))
+        .mockReturnValueOnce(awsReject(1))
+        .mockReturnValueOnce(awsReject(1))
+        .mockReturnValueOnce(awsReject(1))
+        .mockReturnValueOnce(awsReject(1))
+        .mockReturnValueOnce(awsReject(1))
+        .mockReturnValueOnce(awsReject(1))
+        .mockReturnValueOnce(awsResolve({ Invalidation: {} }));
+
+      try {
+        await invalidateCloudfrontCacheWithRetry(
+          "some-distribution-id",
+          "index.html, static/*"
+        );
+      } catch (error) {
+        expect(error).toBeDefined();
+      }
+
+      expect(createInvalidationMock).toHaveBeenCalledTimes(5);
     });
   });
 
