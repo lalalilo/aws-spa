@@ -12,7 +12,7 @@ import { getCertificateARN, createCertificate } from "./acm";
 import {
   findDeployedCloudfrontDistribution,
   createCloudFrontDistribution,
-  invalidateCloudfrontCache,
+  invalidateCloudfrontCacheWithRetry,
   DistributionIdentificationDetail,
   setSimpleAuthBehavior,
   getCacheInvalidations
@@ -41,8 +41,9 @@ export const deploy = async (
   const [domainName, s3Folder] = url.split("/");
 
   logger.info(
-    `✨ Deploying "${folder}" on "${domainName}" with path "${s3Folder ||
-      "/"}"...`
+    `✨ Deploying "${folder}" on "${domainName}" with path "${
+      s3Folder || "/"
+    }"...`
   );
 
   if (!existsSync(folder)) {
@@ -75,9 +76,8 @@ export const deploy = async (
     certificateArn = await createCertificate(domainName, hostedZone.Id);
   }
 
-  let distribution: DistributionIdentificationDetail | null = await findDeployedCloudfrontDistribution(
-    domainName
-  );
+  let distribution: DistributionIdentificationDetail | null =
+    await findDeployedCloudfrontDistribution(domainName);
   if (!distribution) {
     distribution = await createCloudFrontDistribution(
       domainName,
@@ -102,7 +102,8 @@ export const deploy = async (
   }
 
   await syncToS3(folder, domainName, cacheBustedPrefix, s3Folder);
-  await invalidateCloudfrontCache(
+
+  await invalidateCloudfrontCacheWithRetry(
     distribution.Id,
     getCacheInvalidations(cacheInvalidations, s3Folder),
     wait

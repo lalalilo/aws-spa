@@ -1,13 +1,15 @@
 import { cloudfront, bucketRegion, websiteEndpoint } from "./aws-services";
 import { getAll } from "./aws-helper";
 import { logger } from "./logger";
-import {
+import CloudFront, {
   DistributionSummary,
   DistributionConfig,
   Tag,
   LambdaFunctionAssociationList
 } from "aws-sdk/clients/cloudfront";
 import { lambdaPrefix } from "./lambda";
+import { PromiseResult } from "aws-sdk/lib/request";
+import { AWSError } from "aws-sdk";
 
 export interface DistributionIdentificationDetail {
   Id: string;
@@ -277,6 +279,30 @@ export const invalidateCloudfrontCache = async (
   }
 };
 
+export const invalidateCloudfrontCacheWithRetry = async (
+  distributionId: string,
+  paths: string,
+  wait: boolean = false,
+  count: number = 0
+): Promise<PromiseResult<
+  CloudFront.GetInvalidationResult,
+  AWSError
+> | void> => {
+  try {
+    return await invalidateCloudfrontCache(distributionId, paths, wait);
+  } catch (error) {
+    if (count < 4) {
+      return await invalidateCloudfrontCacheWithRetry(
+        distributionId,
+        paths,
+        wait,
+        count + 1
+      );
+    }
+    throw error;
+  }
+};
+
 export const identifyingTag: Tag = {
   Key: "managed-by-aws-spa",
   Value: "v1"
@@ -290,8 +316,8 @@ export const setSimpleAuthBehavior = async (
     .getDistributionConfig({ Id: distributionId })
     .promise();
 
-  const lambdaConfigs = DistributionConfig!.DefaultCacheBehavior
-    .LambdaFunctionAssociations!.Items!;
+  const lambdaConfigs =
+    DistributionConfig!.DefaultCacheBehavior.LambdaFunctionAssociations!.Items!;
 
   if (lambdaFunctionARN === null) {
     logger.info(
