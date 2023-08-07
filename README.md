@@ -2,9 +2,9 @@
 
 Deploy a single page app on AWS in one command.
 
-[![CircleCI](https://circleci.com/gh/lalalilo/aws-spa.svg?style=svg)](https://circleci.com/gh/lalalilo/aws-spa) [![codecov](https://codecov.io/gh/lalalilo/aws-spa/branch/master/graph/badge.svg)](https://codecov.io/gh/lalalilo/aws-spa)
+[![CircleCI](https://circleci.com/gh/lalalilo/aws-spa.svg?style=svg)](https://circleci.com/gh/lalalilo/aws-spa) [![codecov](https://codecov.io/gh/lalalilo/aws-spa/branch/main/graph/badge.svg)](https://codecov.io/gh/lalalilo/aws-spa)
 
-![first deployment](https://raw.githubusercontent.com/lalalilo/aws-spa/master/docs/first-deployment.png)
+![first deployment](https://raw.githubusercontent.com/lalalilo/aws-spa/main/docs/first-deployment.png)
 
 ## Install & use
 
