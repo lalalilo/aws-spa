@@ -43,7 +43,7 @@ export const deploy = async (
   logger.info(
     `✨ Deploying "${folder}" on "${domainName}" with path "${
       s3Folder || "/"
-    }"...`
+    }"...`,
   );
 
   if (!existsSync(folder)) {
@@ -60,7 +60,7 @@ export const deploy = async (
 
     // without this timeout `setBucketPolicy` fails with error
     // "The specified bucket does not exist"
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   }
   await tagBucket(domainName);
   await setBucketWebsite(domainName);
@@ -81,14 +81,14 @@ export const deploy = async (
   if (!distribution) {
     distribution = await createCloudFrontDistribution(
       domainName,
-      certificateArn
+      certificateArn,
     );
   }
 
   if (credentials) {
     const simpleAuthLambdaARN = await deploySimpleAuthLambda(
       domainName,
-      credentials
+      credentials,
     );
     await setSimpleAuthBehavior(distribution.Id, simpleAuthLambdaARN);
   } else {
@@ -106,6 +106,6 @@ export const deploy = async (
   await invalidateCloudfrontCacheWithRetry(
     distribution.Id,
     getCacheInvalidations(cacheInvalidations, s3Folder),
-    wait
+    wait,
   );
 };
