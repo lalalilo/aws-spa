@@ -34,7 +34,7 @@ export const createBucket = async (bucketName: string) => {
   } catch (error: any) {
     if (error.statusCode === 409) {
       throw new Error(
-        "[S3] It seems that a bucket already exists but in an unsupported region... You should delete it first."
+        "[S3] It seems that a bucket already exists but in an unsupported region... You should delete it first.",
       );
     }
     throw error;
@@ -43,7 +43,7 @@ export const createBucket = async (bucketName: string) => {
 
 export const confirmBucketManagement = async (bucketName: string) => {
   logger.info(
-    `[S3] 🔍 Checking that tag "${identifyingTag.Key}:${identifyingTag.Value}" exists on bucket "${bucketName}"...`
+    `[S3] 🔍 Checking that tag "${identifyingTag.Key}:${identifyingTag.Value}" exists on bucket "${bucketName}"...`,
   );
   try {
     const { TagSet } = await s3
@@ -52,12 +52,12 @@ export const confirmBucketManagement = async (bucketName: string) => {
 
     const tag = TagSet.find(
       (_tag) =>
-        _tag.Key === identifyingTag.Key && _tag.Value === identifyingTag.Value
+        _tag.Key === identifyingTag.Key && _tag.Value === identifyingTag.Value,
     );
 
     if (tag) {
       logger.info(
-        `[S3] 👍 Tag "${identifyingTag.Key}:${identifyingTag.Value}" found`
+        `[S3] 👍 Tag "${identifyingTag.Key}:${identifyingTag.Value}" found`,
       );
       return true;
     }
@@ -83,7 +83,7 @@ export const confirmBucketManagement = async (bucketName: string) => {
 
 export const tagBucket = async (bucketName: string) => {
   logger.info(
-    `[S3] ✏️ Tagging "${bucketName}" bucket with "${identifyingTag.Key}:${identifyingTag.Value}"...`
+    `[S3] ✏️ Tagging "${bucketName}" bucket with "${identifyingTag.Key}:${identifyingTag.Value}"...`,
   );
   await s3
     .putBucketTagging({
@@ -95,9 +95,23 @@ export const tagBucket = async (bucketName: string) => {
     .promise();
 };
 
+export const removeBucketWebsite = (bucketName: string) => {
+  logger.info(
+    `[S3] 🔏 Ensure bucket "${bucketName}" is not a static website hosting`,
+  );
+  try {
+    return s3.deleteBucketWebsite({ Bucket: bucketName }).promise();
+  } catch (error) {
+    logger.error(
+      `[S3] ❌ Error when removing static website hosting for bucket "${bucketName}"`,
+      error,
+    );
+  }
+};
+
 export const setBucketWebsite = (bucketName: string) => {
   logger.info(
-    `[S3] ✏️ Set bucket website with IndexDocument: "index.html" & ErrorDocument: "index.html" to "${bucketName}"...`
+    `[S3] ✏️ Set bucket website with IndexDocument: "index.html" & ErrorDocument: "index.html" to "${bucketName}"...`,
   );
   return s3
     .putBucketWebsite({
@@ -136,6 +150,79 @@ export const setBucketPolicy = (bucketName: string) => {
     .promise();
 };
 
+export const setBucketPolicyForOAC = (
+  bucketName: string,
+  distributionId: string,
+) => {
+  logger.info(
+    `[S3] 🔏 Allow distribution ${distributionId} to read from "${bucketName}"...`,
+  );
+  try {
+    return s3
+      .putBucketPolicy({
+        Bucket: bucketName,
+        Policy: JSON.stringify({
+          Statement: [
+            {
+              Sid: "AllowCloudFrontServicePrincipal",
+              Effect: "Allow",
+              Principal: {
+                Service: "cloudfront.amazonaws.com",
+              },
+              Action: "s3:GetObject",
+              Resource: `arn:aws:s3:::${bucketName}/*`,
+              Condition: {
+                StringEquals: {
+                  "AWS:SourceArn": `arn:aws:cloudfront::651828462322:distribution/${distributionId}`,
+                },
+              },
+            },
+          ],
+        }),
+      })
+      .promise();
+  } catch (error) {
+    logger.error(
+      `[S3] ❌ Error when allowing distribution to read from "${bucketName}"`,
+      error,
+    );
+  }
+};
+
+export const blockBucketPublicAccess = (bucketName: string) => {
+  logger.info(`[S3] 🔏 Block public access for bucket "${bucketName}"...`);
+  const params = {
+    Bucket: bucketName,
+    PublicAccessBlockConfiguration: {
+      BlockPublicAcls: true,
+      IgnorePublicAcls: true,
+      BlockPublicPolicy: true,
+      RestrictPublicBuckets: true,
+    },
+  };
+
+  try {
+    return s3.putPublicAccessBlock(params).promise();
+  } catch (error) {
+    logger.error(
+      `[S3] ❌ Error blocking public access for bucket "${bucketName}"`,
+      error,
+    );
+  }
+};
+
+export const allowBucketPublicAccess = (bucketName: string) => {
+  logger.info(`[S3] ✅ Allow public access for bucket "${bucketName}"...`);
+  try {
+    return s3.deletePublicAccessBlock({ Bucket: bucketName }).promise();
+  } catch (error) {
+    logger.error(
+      `[S3] ❌ Error allowing public access for bucket "${bucketName}"`,
+      error,
+    );
+  }
+};
+
 export const identifyingTag: Tag = {
   Key: "managed-by-aws-spa",
   Value: "v1",
@@ -145,7 +232,7 @@ export const syncToS3 = function (
   folder: string,
   bucketName: string,
   cacheBustedPrefix: string | undefined,
-  subfolder?: string
+  subfolder?: string,
 ) {
   logger.info(`[S3] ✏️ Uploading "${folder}" folder on "${bucketName}"...`);
 
@@ -167,13 +254,13 @@ export const syncToS3 = function (
             "application/octet-stream",
         })
         .promise();
-    })
+    }),
   );
 };
 
 const getCacheControl = (
   filename: string,
-  cacheBustedPrefix: string | undefined
+  cacheBustedPrefix: string | undefined,
 ) => {
   if (filename === "index.html") {
     // This will allow CloudFront to store the file on the edge location,
