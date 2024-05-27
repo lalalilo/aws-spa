@@ -95,6 +95,20 @@ export const tagBucket = async (bucketName: string) => {
     .promise();
 };
 
+export const removeBucketWebsite = (bucketName: string) => {
+  logger.info(
+    `[S3] 🔏 Ensure bucket "${bucketName}" is not a static website hoisting`
+  );
+  try {
+    return s3.deleteBucketWebsite({ Bucket: bucketName }).promise();
+  } catch (error) {
+    logger.error(
+      `[S3] ❌ Error when removing static website hoisting for bucket "${bucketName}"`,
+      error
+    );
+  }
+};
+
 export const setBucketWebsite = (bucketName: string) => {
   logger.info(
     `[S3] ✏️ Set bucket website with IndexDocument: "index.html" & ErrorDocument: "index.html" to "${bucketName}"...`
@@ -134,6 +148,79 @@ export const setBucketPolicy = (bucketName: string) => {
       }),
     })
     .promise();
+};
+
+export const setBucketPolicyForOAC = (
+  bucketName: string,
+  distributionId: string
+) => {
+  logger.info(
+    `[S3] 🔏 Allow distribution ${distributionId} to read from "${bucketName}"...`
+  );
+  try {
+    return s3
+      .putBucketPolicy({
+        Bucket: bucketName,
+        Policy: JSON.stringify({
+          Statement: [
+            {
+              Sid: "AllowCloudFrontServicePrincipal",
+              Effect: "Allow",
+              Principal: {
+                Service: "cloudfront.amazonaws.com",
+              },
+              Action: "s3:GetObject",
+              Resource: `arn:aws:s3:::${bucketName}/*`,
+              Condition: {
+                StringEquals: {
+                  "AWS:SourceArn": `arn:aws:cloudfront::651828462322:distribution/${distributionId}`,
+                },
+              },
+            },
+          ],
+        }),
+      })
+      .promise();
+  } catch (error) {
+    logger.error(
+      `[S3] ❌ Error when allowing distribution to read from "${bucketName}"`,
+      error
+    );
+  }
+};
+
+export const blockBucketPublicAccess = (bucketName: string) => {
+  logger.info(`[S3] 🔏 Block public access for bucket "${bucketName}"...`);
+  const params = {
+    Bucket: bucketName,
+    PublicAccessBlockConfiguration: {
+      BlockPublicAcls: true,
+      IgnorePublicAcls: true,
+      BlockPublicPolicy: true,
+      RestrictPublicBuckets: true,
+    },
+  };
+
+  try {
+    return s3.putPublicAccessBlock(params).promise();
+  } catch (error) {
+    logger.error(
+      `[S3] ❌ Error blocking public access for bucket "${bucketName}"`,
+      error
+    );
+  }
+};
+
+export const allowBucketPublicAccess = (bucketName: string) => {
+  logger.info(`[S3] ✅ Allow public access for bucket "${bucketName}"...`);
+  try {
+    return s3.deletePublicAccessBlock({ Bucket: bucketName }).promise();
+  } catch (error) {
+    logger.error(
+      `[S3] ❌ Error allowing public access for bucket "${bucketName}"`,
+      error
+    );
+  }
 };
 
 export const identifyingTag: Tag = {

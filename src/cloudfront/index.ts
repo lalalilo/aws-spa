@@ -412,3 +412,112 @@ const updateLambdaFunctionAssociations = async (
     })
     .promise();
 };
+
+export const updateCloudFrontDistribution = async (
+  distributionId: string,
+  domainName: string,
+  shouldBlockBucketPublicAccess: boolean,
+  oac: OAC | undefined,
+) => {
+  try {
+    const { DistributionConfig, ETag } = await cloudfront
+      .getDistributionConfig({ Id: distributionId })
+      .promise();
+
+    if (
+      isRightOriginAlreadyAssociated(
+        shouldBlockBucketPublicAccess,
+        domainName,
+        DistributionConfig,
+      )
+    ) {
+      return;
+    }
+
+    logger.info(
+      `[Cloudfront] ✏️ Update distribution configuration "${distributionId}"...`,
+    );
+
+    await cloudfront
+      .updateDistribution({
+        Id: distributionId,
+        IfMatch: ETag,
+        DistributionConfig: getUpdatedDistributionConfig(
+          domainName,
+          oac?.originAccessControl.Id,
+          DistributionConfig!,
+          shouldBlockBucketPublicAccess,
+        ),
+      })
+      .promise();
+  } catch (error) {
+    throw error;
+  }
+};
+
+const getUpdatedDistributionConfig = (
+  domainName: string,
+  originAccessControlId: string | undefined,
+  distributionConfig: CloudFront.DistributionConfig,
+  shouldBlockBucketPublicAccess: boolean,
+) => {
+  if (shouldBlockBucketPublicAccess && originAccessControlId) {
+    return {
+      ...distributionConfig!,
+      Origins: {
+        Quantity: 1,
+        Items: [
+          {
+            Id: getS3DomainNameForBlockedBucket(domainName),
+            DomainName: getS3DomainNameForBlockedBucket(domainName),
+            OriginAccessControlId: originAccessControlId,
+            S3OriginConfig: {
+              OriginAccessIdentity: "", //If you're using origin access control (OAC) instead of origin access identity, specify an empty OriginAccessIdentity element
+            },
+            OriginPath: "",
+            CustomHeaders: {
+              Quantity: 0,
+              Items: [],
+            },
+          },
+        ],
+      },
+      DefaultCacheBehavior: {
+        ...distributionConfig.DefaultCacheBehavior,
+        TargetOriginId: getS3DomainNameForBlockedBucket(domainName),
+      },
+    };
+  }
+  return {
+    ...distributionConfig,
+    Origins: {
+      Quantity: 1,
+      Items: [
+        {
+          Id: getOriginId(domainName),
+          DomainName: getS3DomainName(domainName),
+          CustomOriginConfig: {
+            HTTPPort: 80,
+            HTTPSPort: 443,
+            OriginProtocolPolicy: "http-only",
+            OriginSslProtocols: {
+              Quantity: 1,
+              Items: ["TLSv1"],
+            },
+            OriginReadTimeout: 30,
+            OriginKeepaliveTimeout: 5,
+          },
+          CustomHeaders: {
+            Quantity: 0,
+            Items: [],
+          },
+          OriginPath: "",
+        },
+      ],
+    },
+    DefaultCacheBehavior: {
+      ...distributionConfig.DefaultCacheBehavior,
+      TargetOriginId: getOriginId(domainName),
+    },
+  };
+};
