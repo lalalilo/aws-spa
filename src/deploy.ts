@@ -34,7 +34,8 @@ export const deploy = async (
   cacheInvalidations: string,
   cacheBustedPrefix: string | undefined,
   credentials: string | undefined,
-  noPrompt: boolean
+  noPrompt: boolean,
+  shouldBlockBucketPublicAccess: boolean,
 ) => {
   await predeployPrompt(Boolean(process.env.CI), noPrompt);
 

@@ -51,6 +51,13 @@ yargs
           default: false,
           describe:
             "Disable confirm message that prompts on non CI environments (env CI=true)",
+        })
+        .option("shouldBlockBucketPublicAccess", {
+          type: "boolean",
+          default: false,
+          describe: `Use a REST API endpoint as the origin, and restrict access with an OAC".
+
+          This is useful if you want to keep your bucket private. This would not work for multiple versions hosted in the same s3 bucket.`,
         });
     },
     async (argv) => {
@@ -65,7 +72,8 @@ yargs
           argv.cacheInvalidation,
           argv.cacheBustedPrefix,
           argv.credentials || process.env.AWS_SPA_CREDENTIALS,
-          argv.noPrompt
+          argv.noPrompt,
+          argv.shouldBlockBucketPublicAccess
         );
         logger.info("✅ done!");
         process.exit(0);
