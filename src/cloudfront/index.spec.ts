@@ -368,4 +368,104 @@ describe("cloudfront", () => {
       expect(getCacheInvalidations(input, subFolder)).toEqual(expectedOutput);
     });
   });
+
+  describe("updateCloudFrontDistribution", () => {
+    const getDistributionConfigMock = jest.spyOn(
+      cloudfront,
+      "getDistributionConfig"
+    );
+    const updateDistribution = jest.spyOn(cloudfront, "updateDistribution");
+
+    beforeEach(() => {
+      getDistributionConfigMock.mockReset();
+      updateDistribution.mockReset();
+    });
+
+    it.each([
+      {
+        shouldBlockBucketPublicAccess: true,
+      },
+      { shouldBlockBucketPublicAccess: false },
+    ])(
+      "should not update the distribution if the right origin is already associated",
+      async ({ shouldBlockBucketPublicAccess }) => {
+        const domainName = "hello.lalilo.com";
+        const originId = shouldBlockBucketPublicAccess
+          ? getS3DomainNameForBlockedBucket(domainName)
+          : getS3DomainName(domainName);
+
+        const distribution = {
+          Id: "distribution-id",
+          Origins: { Items: [{ Id: originId }] },
+          DefaultCacheBehavior: {
+            TargetOriginId: originId,
+          },
+        };
+
+        getDistributionConfigMock.mockReturnValue(
+          awsResolve({ DistributionConfig: distribution })
+        );
+
+        await updateCloudFrontDistribution(
+          distribution.Id,
+          domainName,
+          shouldBlockBucketPublicAccess,
+          undefined
+        );
+
+        expect(updateDistribution).not.toHaveBeenCalled();
+      }
+    );
+
+    it("should update the distribution with an OAC when shouldBlockBucketPublicAccess and oac is given", async () => {
+      const shouldBlockBucketPublicAccess = true;
+      const domainName = "hello.lalilo.com";
+      const originIdForPrivateBucket =
+        getS3DomainNameForBlockedBucket(domainName);
+
+      const oac = { originAccessControl: { Id: "oac-id" }, ETag: "etag" };
+      const distribution = {
+        Id: "distribution-id",
+        Origins: { Items: [{ Id: getS3DomainName(domainName) }] },
+        DefaultCacheBehavior: {
+          TargetOriginId: getS3DomainName(domainName),
+        },
+      };
+
+      getDistributionConfigMock.mockReturnValue(
+        awsResolve({ DistributionConfig: distribution })
+      );
+
+      updateDistribution.mockReturnValueOnce(awsResolve());
+      await updateCloudFrontDistribution(
+        distribution.Id,
+        domainName,
+        shouldBlockBucketPublicAccess,
+        oac
+      );
+
+      expect(updateDistribution).toHaveBeenCalled();
+      expect(updateDistribution).toHaveBeenCalledWith(
+        expect.objectContaining({
+          DistributionConfig: expect.objectContaining({
+            Origins: expect.objectContaining({
+              Items: [
+                expect.objectContaining({
+                  Id: originIdForPrivateBucket,
+                  DomainName: originIdForPrivateBucket,
+                  OriginAccessControlId: oac.originAccessControl.Id,
+                  S3OriginConfig: {
+                    OriginAccessIdentity: "",
+                  },
+                }),
+              ],
+            }),
+            DefaultCacheBehavior: expect.objectContaining({
+              TargetOriginId: originIdForPrivateBucket,
+            }),
+          }),
+        })
+      );
+    });
+  });
 });
