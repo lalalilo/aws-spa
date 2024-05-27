@@ -1,31 +1,41 @@
 import { existsSync } from "fs";
+import { createCertificate, getCertificateARN } from "./acm";
 import {
-  doesS3BucketExists,
-  createBucket,
-  syncToS3,
-  setBucketWebsite,
-  setBucketPolicy,
-  confirmBucketManagement,
-  tagBucket
-} from "./s3";
-import { getCertificateARN, createCertificate } from "./acm";
-import {
-  findDeployedCloudfrontDistribution,
-  createCloudFrontDistribution,
-  invalidateCloudfrontCacheWithRetry,
   DistributionIdentificationDetail,
+  createCloudFrontDistribution,
+  findDeployedCloudfrontDistribution,
+  getCacheInvalidations,
+  invalidateCloudfrontCacheWithRetry,
   setSimpleAuthBehavior,
-  getCacheInvalidations
+  updateCloudFrontDistribution,
 } from "./cloudfront";
 import {
-  findHostedZone,
-  createHostedZone,
-  updateRecord,
-  needsUpdateRecord
-} from "./route53";
-import { logger } from "./logger";
+  deleteOriginAccessControl,
+  upsertOriginAccessControl,
+} from "./cloudfront/origin-access";
 import { deploySimpleAuthLambda } from "./lambda";
+import { logger } from "./logger";
 import { predeployPrompt } from "./prompt";
+import {
+  createHostedZone,
+  findHostedZone,
+  needsUpdateRecord,
+  updateRecord,
+} from "./route53";
+
+import {
+  allowBucketPublicAccess,
+  blockBucketPublicAccess,
+  confirmBucketManagement,
+  createBucket,
+  doesS3BucketExists,
+  removeBucketWebsite,
+  setBucketPolicy,
+  setBucketPolicyForOAC,
+  setBucketWebsite,
+  syncToS3,
+  tagBucket,
+} from "./s3";
 
 export const deploy = async (
   url: string,
@@ -64,8 +74,6 @@ export const deploy = async (
     await new Promise((resolve) => setTimeout(resolve, 2000));
   }
   await tagBucket(domainName);
-  await setBucketWebsite(domainName);
-  await setBucketPolicy(domainName);
 
   let hostedZone = await findHostedZone(domainName);
   if (!hostedZone) {
@@ -84,6 +92,33 @@ export const deploy = async (
       domainName,
       certificateArn,
     );
+  }
+
+  const oac = await upsertOriginAccessControl(
+    domainName,
+    distribution.Id,
+    shouldBlockBucketPublicAccess,
+  );
+
+  await updateCloudFrontDistribution(
+    distribution.Id,
+    domainName,
+    shouldBlockBucketPublicAccess,
+    oac,
+  );
+
+  if (shouldBlockBucketPublicAccess) {
+    await removeBucketWebsite(domainName);
+    await blockBucketPublicAccess(domainName);
+    await setBucketPolicyForOAC(domainName, distribution.Id);
+  } else {
+    await setBucketWebsite(domainName);
+    await allowBucketPublicAccess(domainName);
+    await setBucketPolicy(domainName);
+
+    if (oac) {
+      await deleteOriginAccessControl(oac);
+    }
   }
 
   if (credentials) {
