@@ -1,12 +1,12 @@
 import { S3, ACM, CloudFront, Route53, Lambda, IAM } from "aws-sdk";
 
 // Bucket region must be fixed so that website endpoint is fixe
-// https://docs.aws.amazon.com/fr_fr/general/latest/gr/rande.html#s3_website_region_endpoints
+// https://docs.aws.amazon.com/fr_fr/general/latest/gr/s3.html
 export const bucketRegion = "eu-west-3";
 
 export const s3 = new S3({
   apiVersion: "2006-03-01",
-  region: bucketRegion
+  region: bucketRegion,
 });
 
 export const lambda = new Lambda({ region: "us-east-1" });
@@ -20,7 +20,7 @@ export const cloudfront = new CloudFront();
 export const route53 = new Route53();
 
 // S3 API does not seem to expose this data
-// https://docs.aws.amazon.com/fr_fr/general/latest/gr/rande.html#s3_website_region_endpoints
+// https://docs.aws.amazon.com/fr_fr/general/latest/gr/s3.html
 export const websiteEndpoint = {
   "us-east-2": "s3-website.us-east-2.amazonaws.com",
   "us-east-1": "s3-website-us-east-1.amazonaws.com",
@@ -39,5 +39,14 @@ export const websiteEndpoint = {
   "eu-west-2": "s3-website.eu-west-2.amazonaws.com",
   "eu-west-3": "s3-website.eu-west-3.amazonaws.com",
   "eu-north-1": "s3-website.eu-north-1.amazonaws.com",
-  "sa-east-1": "s3-website-sa-east-1.amazonaws.com"
+  "sa-east-1": "s3-website-sa-east-1.amazonaws.com",
 };
+
+export const getS3DomainNameForBlockedBucket = (domainName: string) =>
+  `${domainName}.s3.${bucketRegion}.amazonaws.com`;
+
+export const getS3DomainName = (domainName: string) =>
+  `${domainName}.${websiteEndpoint[bucketRegion]}`;
+
+export const getOriginId = (domainName: string) =>
+  `S3-Website-${getS3DomainName(domainName)}`;
