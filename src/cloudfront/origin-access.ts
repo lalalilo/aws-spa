@@ -98,18 +98,11 @@ export const isRightOriginAlreadyAssociated = (
     const isOACAlreadyAssociated = distributionConfig?.Origins.Items.find(
       (o) => o.Id === getS3DomainNameForBlockedBucket(domainName),
     );
-    if (isOACAlreadyAssociated) {
-      return true;
-    }
-  }
-
-  if (!shouldBlockBucketPublicAccess) {
+    return isOACAlreadyAssociated;
+  } else {
     const isS3WebsiteAlreadyAssociated = distributionConfig?.Origins.Items.find(
       (o) => o.Id === getS3DomainName(domainName),
     );
-    if (isS3WebsiteAlreadyAssociated) {
-      return true;
-    }
+    return isS3WebsiteAlreadyAssociated;
   }
-  return false;
 };
