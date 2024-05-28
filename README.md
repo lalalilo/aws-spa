@@ -65,7 +65,7 @@ aws-spa deploy app.example.com/$(git branch | grep * | cut -d ' ' -f2)
 - `--cacheInvalidation`: cache invalidation to be done in CloudFront. Default is `*`: all files are invalidated. For a `create-react-app` app you only need to invalidate `/index.html`
 - `--cacheBustedPrefix`: a folder where files are suffixed with a hash (cash busting). Their `cache-control` value is set to `max-age=31536000`. For a `create-react-app` app you can specify `static/`.
 - `--noPrompt`: Disable confirm message that prompts on non CI environments (env CI=true).
-- `--shouldBlockBucketPublicAccess`: This option will deploy the SPA with a bucket not being publicly accessible. Access to the bucket will be done through an Origin Access Control (OAC).
+- `--shouldBlockBucketPublicAccess`: This option will deploy the SPA with a bucket not being publicly accessible. Access to the bucket will be done through an Origin Access Control (OAC). Default value is false.
 
 ## Migrate an existing SPA on aws-spa
 
