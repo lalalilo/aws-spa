@@ -1,31 +1,41 @@
 import { existsSync } from "fs";
+import { createCertificate, getCertificateARN } from "./acm";
 import {
-  doesS3BucketExists,
-  createBucket,
-  syncToS3,
-  setBucketWebsite,
-  setBucketPolicy,
-  confirmBucketManagement,
-  tagBucket
-} from "./s3";
-import { getCertificateARN, createCertificate } from "./acm";
-import {
-  findDeployedCloudfrontDistribution,
-  createCloudFrontDistribution,
-  invalidateCloudfrontCacheWithRetry,
   DistributionIdentificationDetail,
+  createCloudFrontDistribution,
+  findDeployedCloudfrontDistribution,
+  getCacheInvalidations,
+  invalidateCloudfrontCacheWithRetry,
   setSimpleAuthBehavior,
-  getCacheInvalidations
+  updateCloudFrontDistribution,
 } from "./cloudfront";
 import {
-  findHostedZone,
-  createHostedZone,
-  updateRecord,
-  needsUpdateRecord
-} from "./route53";
-import { logger } from "./logger";
+  deleteOriginAccessControl,
+  upsertOriginAccessControl,
+} from "./cloudfront/origin-access";
 import { deploySimpleAuthLambda } from "./lambda";
+import { logger } from "./logger";
 import { predeployPrompt } from "./prompt";
+import {
+  createHostedZone,
+  findHostedZone,
+  needsUpdateRecord,
+  updateRecord,
+} from "./route53";
+
+import {
+  allowBucketPublicAccess,
+  blockBucketPublicAccess,
+  confirmBucketManagement,
+  createBucket,
+  doesS3BucketExists,
+  removeBucketWebsite,
+  setBucketPolicy,
+  setBucketPolicyForOAC,
+  setBucketWebsite,
+  syncToS3,
+  tagBucket,
+} from "./s3";
 
 export const deploy = async (
   url: string,
@@ -34,7 +44,8 @@ export const deploy = async (
   cacheInvalidations: string,
   cacheBustedPrefix: string | undefined,
   credentials: string | undefined,
-  noPrompt: boolean
+  noPrompt: boolean,
+  shouldBlockBucketPublicAccess: boolean,
 ) => {
   await predeployPrompt(Boolean(process.env.CI), noPrompt);
 
@@ -43,7 +54,7 @@ export const deploy = async (
   logger.info(
     `✨ Deploying "${folder}" on "${domainName}" with path "${
       s3Folder || "/"
-    }"...`
+    }"...`,
   );
 
   if (!existsSync(folder)) {
@@ -60,11 +71,9 @@ export const deploy = async (
 
     // without this timeout `setBucketPolicy` fails with error
     // "The specified bucket does not exist"
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise((resolve) => setTimeout(resolve, 2000));
   }
   await tagBucket(domainName);
-  await setBucketWebsite(domainName);
-  await setBucketPolicy(domainName);
 
   let hostedZone = await findHostedZone(domainName);
   if (!hostedZone) {
@@ -81,14 +90,41 @@ export const deploy = async (
   if (!distribution) {
     distribution = await createCloudFrontDistribution(
       domainName,
-      certificateArn
+      certificateArn,
     );
+  }
+
+  const oac = await upsertOriginAccessControl(
+    domainName,
+    distribution.Id,
+    shouldBlockBucketPublicAccess,
+  );
+
+  await updateCloudFrontDistribution(
+    distribution.Id,
+    domainName,
+    shouldBlockBucketPublicAccess,
+    oac,
+  );
+
+  if (shouldBlockBucketPublicAccess) {
+    await removeBucketWebsite(domainName);
+    await blockBucketPublicAccess(domainName);
+    await setBucketPolicyForOAC(domainName, distribution.Id);
+  } else {
+    await setBucketWebsite(domainName);
+    await allowBucketPublicAccess(domainName);
+    await setBucketPolicy(domainName);
+
+    if (oac) {
+      await deleteOriginAccessControl(oac);
+    }
   }
 
   if (credentials) {
     const simpleAuthLambdaARN = await deploySimpleAuthLambda(
       domainName,
-      credentials
+      credentials,
     );
     await setSimpleAuthBehavior(distribution.Id, simpleAuthLambdaARN);
   } else {
@@ -106,6 +142,6 @@ export const deploy = async (
   await invalidateCloudfrontCacheWithRetry(
     distribution.Id,
     getCacheInvalidations(cacheInvalidations, s3Folder),
-    wait
+    wait,
   );
 };
