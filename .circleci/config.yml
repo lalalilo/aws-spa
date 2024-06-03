@@ -2,44 +2,49 @@ version: 2
 jobs:
   build:
     docker:
-      - image: cimg/node:16.17
+    - image: cimg/node:16.17
 
     working_directory: ~/aws-spa
 
     steps:
-      - checkout
+    - checkout
 
-      - restore_cache:
-          name: Restore Yarn Package Cache
-          keys:
-            - yarn-packages-{{ checksum "yarn.lock" }}
+    - restore_cache:
+        name: Restore Yarn Package Cache
+        keys:
+        - yarn-packages-{{ checksum "yarn.lock" }}
 
-      - run:
-          name: Install Dependencies
-          command: yarn install --frozen-lockfile
+    - run:
+        name: Install Dependencies
+        command: yarn install --frozen-lockfile
 
-      - save_cache:
-          name: Save Yarn Package Cache
-          key: yarn-packages-{{ checksum "yarn.lock" }}
-          paths:
-            - ~/.cache/yarn
+    - save_cache:
+        name: Save Yarn Package Cache
+        key: yarn-packages-{{ checksum "yarn.lock" }}
+        paths:
+        - ~/.cache/yarn
 
-      - run:
-          name: Check types
-          command: yarn check-types
+    - run:
+        name: Check types
+        command: yarn check-types
 
-      - run:
-          name: Run tests
-          command: yarn test --coverage
+    - run:
+        name: Run tests
+        command: yarn test --coverage
 
-      - run:
-          name: Code coverage
-          command: npx codecov
+    - run:
+        name: Code coverage
+        command: npx codecov
 
-      - run:
-          name: Build
-          command: yarn build
+    - run:
+        name: Build
+        command: yarn build
 
-      - run:
-          name: Release
-          command: npx semantic-release
+    - run:
+        name: Release
+        command: |
+          if [ "${CIRCLE_BRANCH}" == "main" ]; then
+            npx semantic-release
+          else
+            npx semantic-release --dry-run --no-ci --branches ${CIRCLE_BRANCH}
+          fi
