@@ -410,7 +410,7 @@ describe("cloudfront", () => {
           distribution.Id,
           domainName,
           shouldBlockBucketPublicAccess,
-          undefined
+          null
         );
 
         expect(updateDistribution).not.toHaveBeenCalled();
