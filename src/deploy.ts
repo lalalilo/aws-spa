@@ -10,7 +10,7 @@ import {
   updateCloudFrontDistribution,
 } from "./cloudfront";
 import {
-  deleteOriginAccessControl,
+  cleanExistingOriginAccessControl,
   upsertOriginAccessControl,
 } from "./cloudfront/origin-access";
 import { deploySimpleAuthLambda } from "./lambda";
@@ -94,31 +94,24 @@ export const deploy = async (
     );
   }
 
-  const oac = await upsertOriginAccessControl(
-    domainName,
-    distribution.Id,
-    shouldBlockBucketPublicAccess,
-  );
-
-  await updateCloudFrontDistribution(
-    distribution.Id,
-    domainName,
-    shouldBlockBucketPublicAccess,
-    oac,
-  );
-
   if (shouldBlockBucketPublicAccess) {
+    const oac = await upsertOriginAccessControl(domainName, distribution.Id);
+    await updateCloudFrontDistribution(distribution.Id, domainName, {
+      shouldBlockBucketPublicAccess: true,
+      oac,
+    });
     await removeBucketWebsite(domainName);
     await blockBucketPublicAccess(domainName);
     await setBucketPolicyForOAC(domainName, distribution.Id);
   } else {
+    await updateCloudFrontDistribution(distribution.Id, domainName, {
+      shouldBlockBucketPublicAccess: false,
+      oac: null,
+    });
     await setBucketWebsite(domainName);
     await allowBucketPublicAccess(domainName);
     await setBucketPolicy(domainName);
-
-    if (oac) {
-      await deleteOriginAccessControl(oac);
-    }
+    await cleanExistingOriginAccessControl(domainName, distribution.Id);
   }
 
   if (credentials) {
