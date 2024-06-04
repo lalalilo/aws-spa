@@ -417,7 +417,7 @@ export const updateCloudFrontDistribution = async (
   distributionId: string,
   domainName: string,
   shouldBlockBucketPublicAccess: boolean,
-  oac: OAC | undefined,
+  oac: OAC | null,
 ) => {
   try {
     const { DistributionConfig, ETag } = await cloudfront

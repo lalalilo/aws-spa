@@ -62,18 +62,12 @@ describe("upsertOriginAccessControl", () => {
     const domainName = "my-domain";
     const shouldBlockBucketPublicAccess = false;
 
-    listOriginAccessControlsMock.mockReturnValue(
-      awsResolve({
-        OriginAccessControlList: {},
-      })
-    );
-
     await upsertOriginAccessControl(
       domainName,
       "my-distribution-id",
       shouldBlockBucketPublicAccess
     );
-
+    expect(listOriginAccessControlsMock).not.toHaveBeenCalled();
     expect(createOriginAccessControlMock).not.toHaveBeenCalled();
   });
 
@@ -95,6 +89,7 @@ describe("upsertOriginAccessControl", () => {
       shouldBlockBucketPublicAccess
     );
 
+    expect(listOriginAccessControlsMock).toHaveBeenCalled();
     expect(createOriginAccessControlMock).toHaveBeenCalledTimes(1);
     expect(createOriginAccessControlMock).toHaveBeenCalledWith(
       expect.objectContaining({

@@ -86,8 +86,26 @@ If a CloudFront distribution with this S3 bucket already exists, the script will
 - cloudfront:TagResource
 - cloudfront:GetDistributionConfig
 - cloudfront:CreateInvalidation
+- cloudfront:UpdateDistribution
+- cloudfront:ListOriginAccessControls
+- cloudfront:GetOriginAccessControl
+- cloudfront:CreateOriginAccessControl
+- cloudfront:DeleteOriginAccessControl
 
-**TODO**: complete missing policies
+- s3:PutBucketPolicy
+- s3:GetBucketPolicy
+- s3:PutBucketWebsite
+- s3:GetBucketWebsite
+- s3:DeleteBucketWebsite
+- s3:PutBucketTagging
+- s3:GetBucketTagging
+- s3:DeleteBucketTagging
+- s3:ListBucket
+- s3:PutBucketPublicAccessBlock
+- s3:CreateBucket
+- s3:PutObject
+
+-**TODO**: complete missing policies
 
 ### If using simple auth
 

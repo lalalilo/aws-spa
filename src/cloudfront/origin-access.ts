@@ -65,6 +65,9 @@ export const upsertOriginAccessControl = async (
   distributionId: string,
   shouldBlockBucketPublicAccess: boolean,
 ) => {
+  if (!shouldBlockBucketPublicAccess) {
+    return null;
+  }
   const originAccessControlName = getOriginAccessControlName(
     domainName,
     distributionId,
@@ -74,9 +77,7 @@ export const upsertOriginAccessControl = async (
     return existingOAC;
   }
 
-  if (shouldBlockBucketPublicAccess) {
-    return await createOAC(originAccessControlName, domainName, distributionId);
-  }
+  return await createOAC(originAccessControlName, domainName, distributionId);
 };
 
 export const deleteOriginAccessControl = async (oac: OAC) => {
