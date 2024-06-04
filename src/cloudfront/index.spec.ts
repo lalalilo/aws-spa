@@ -10,6 +10,7 @@ import {
 } from ".";
 import {
   cloudfront,
+  getOriginId,
   getS3DomainName,
   getS3DomainNameForBlockedBucket,
 } from "../aws-services";
@@ -392,11 +393,14 @@ describe("cloudfront", () => {
         const domainName = "hello.lalilo.com";
         const originId = shouldBlockBucketPublicAccess
           ? getS3DomainNameForBlockedBucket(domainName)
+          : getOriginId(domainName);
+        const originDomainName = shouldBlockBucketPublicAccess
+          ? getS3DomainNameForBlockedBucket(domainName)
           : getS3DomainName(domainName);
 
         const distribution = {
           Id: "distribution-id",
-          Origins: { Items: [{ Id: originId }] },
+          Origins: { Items: [{ Id: originId, DomainName: originDomainName }] },
           DefaultCacheBehavior: {
             TargetOriginId: originId,
           },
@@ -423,7 +427,7 @@ describe("cloudfront", () => {
       const oac = { originAccessControl: { Id: "oac-id" }, ETag: "etag" };
       const distribution = {
         Id: "distribution-id",
-        Origins: { Items: [{ Id: getS3DomainName(domainName) }] },
+        Origins: { Items: [{ DomainName: getS3DomainName(domainName) }] },
         DefaultCacheBehavior: {
           TargetOriginId: getS3DomainName(domainName),
         },
