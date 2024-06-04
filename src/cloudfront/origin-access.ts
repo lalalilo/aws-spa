@@ -63,11 +63,7 @@ export const getOriginAccessControlName = (
 export const upsertOriginAccessControl = async (
   domainName: string,
   distributionId: string,
-  shouldBlockBucketPublicAccess: boolean,
 ) => {
-  if (!shouldBlockBucketPublicAccess) {
-    return null;
-  }
   const originAccessControlName = getOriginAccessControlName(
     domainName,
     distributionId,
@@ -80,11 +76,23 @@ export const upsertOriginAccessControl = async (
   return await createOAC(originAccessControlName, domainName, distributionId);
 };
 
-export const deleteOriginAccessControl = async (oac: OAC) => {
+export const cleanExistingOriginAccessControl = async (
+  domainName: string,
+  distributionId: string,
+) => {
+  const originAccessControlName = getOriginAccessControlName(
+    domainName,
+    distributionId,
+  );
+  const existingOAC = await getExistingOAC(originAccessControlName);
+  if (existingOAC === null) {
+    return;
+  }
+
   await cloudfront
     .deleteOriginAccessControl({
-      Id: oac.originAccessControl.Id,
-      IfMatch: oac.ETag,
+      Id: existingOAC.originAccessControl.Id,
+      IfMatch: existingOAC.ETag,
     })
     .promise();
   return;

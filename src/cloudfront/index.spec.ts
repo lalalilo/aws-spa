@@ -21,7 +21,7 @@ describe("cloudfront", () => {
     const listDistributionMock = jest.spyOn(cloudfront, "listDistributions");
     const listTagsForResourceMock = jest.spyOn(
       cloudfront,
-      "listTagsForResource"
+      "listTagsForResource",
     );
     const waitForMock = jest.spyOn(cloudfront, "waitFor");
 
@@ -46,7 +46,7 @@ describe("cloudfront", () => {
                 },
               ],
             },
-          })
+          }),
         )
         .mockReturnValueOnce(
           awsResolve({
@@ -61,7 +61,7 @@ describe("cloudfront", () => {
                 },
               ],
             },
-          })
+          }),
         );
 
       listTagsForResourceMock.mockReturnValue(
@@ -69,7 +69,7 @@ describe("cloudfront", () => {
           Tags: {
             Items: [identifyingTag],
           },
-        })
+        }),
       );
 
       const distribution: any =
@@ -92,7 +92,7 @@ describe("cloudfront", () => {
               },
             ],
           },
-        })
+        }),
       );
 
       listTagsForResourceMock.mockReturnValue(
@@ -100,7 +100,7 @@ describe("cloudfront", () => {
           Tags: {
             Items: [identifyingTag],
           },
-        })
+        }),
       );
       waitForMock.mockReturnValue(awsResolve());
 
@@ -126,7 +126,7 @@ describe("cloudfront", () => {
       const invalidationParams: any = createInvalidationMock.mock.calls[0][0];
       expect(invalidationParams.DistributionId).toEqual("some-distribution-id");
       expect(invalidationParams.InvalidationBatch.Paths.Items[0]).toEqual(
-        "index.html"
+        "index.html",
       );
     });
 
@@ -134,7 +134,7 @@ describe("cloudfront", () => {
       createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }));
       await invalidateCloudfrontCache(
         "some-distribution-id",
-        "index.html, static/*"
+        "index.html, static/*",
       );
 
       expect(createInvalidationMock).toHaveBeenCalledTimes(1);
@@ -152,7 +152,7 @@ describe("cloudfront", () => {
       await invalidateCloudfrontCache(
         "some-distribution-id",
         "index.html",
-        true
+        true,
       );
       expect(waitForMock).toHaveBeenCalledTimes(1);
       expect(waitForMock.mock.calls[0][0]).toEqual("invalidationCompleted");
@@ -174,7 +174,7 @@ describe("cloudfront", () => {
 
       await invalidateCloudfrontCacheWithRetry(
         "some-distribution-id",
-        "index.html, static/*"
+        "index.html, static/*",
       );
 
       expect(createInvalidationMock).toHaveBeenCalledTimes(2);
@@ -194,7 +194,7 @@ describe("cloudfront", () => {
       try {
         await invalidateCloudfrontCacheWithRetry(
           "some-distribution-id",
-          "index.html, static/*"
+          "index.html, static/*",
         );
       } catch (error) {
         expect(error).toBeDefined();
@@ -218,13 +218,13 @@ describe("cloudfront", () => {
     it("should create a distribution and wait for it to be available", async () => {
       const distribution = { Id: "distribution-id" };
       createDistributionMock.mockReturnValue(
-        awsResolve({ Distribution: distribution })
+        awsResolve({ Distribution: distribution }),
       );
       tagResourceMock.mockReturnValue(awsResolve());
       waitForMock.mockReturnValue(awsResolve());
       const result = await createCloudFrontDistribution(
         "hello.lalilo.com",
-        "arn:certificate"
+        "arn:certificate",
       );
       expect(result).toBe(distribution);
       expect(tagResourceMock).toHaveBeenCalledTimes(1);
@@ -232,15 +232,15 @@ describe("cloudfront", () => {
       const distributionParam: any = createDistributionMock.mock.calls[0][0];
       const distributionConfig = distributionParam.DistributionConfig;
       expect(distributionConfig.Origins.Items[0].DomainName).toEqual(
-        "hello.lalilo.com.s3-website.eu-west-3.amazonaws.com"
+        "hello.lalilo.com.s3-website.eu-west-3.amazonaws.com",
       );
       expect(
-        distributionConfig.DefaultCacheBehavior.ViewerProtocolPolicy
+        distributionConfig.DefaultCacheBehavior.ViewerProtocolPolicy,
       ).toEqual("redirect-to-https");
       expect(distributionConfig.DefaultCacheBehavior.MinTTL).toEqual(0);
       expect(distributionConfig.DefaultCacheBehavior.Compress).toEqual(true);
       expect(distributionConfig.ViewerCertificate.ACMCertificateArn).toEqual(
-        "arn:certificate"
+        "arn:certificate",
       );
 
       expect(waitForMock).toHaveBeenCalledTimes(1);
@@ -253,7 +253,7 @@ describe("cloudfront", () => {
   describe("setSimpleAuthBehavior", () => {
     const getDistributionConfig = jest.spyOn(
       cloudfront,
-      "getDistributionConfig"
+      "getDistributionConfig",
     );
     const updateDistribution = jest.spyOn(cloudfront, "updateDistribution");
 
@@ -273,7 +273,7 @@ describe("cloudfront", () => {
             },
           },
           ETag: "",
-        })
+        }),
       );
       await setSimpleAuthBehavior("distribution-id", null);
       expect(updateDistribution).not.toHaveBeenCalled();
@@ -290,14 +290,14 @@ describe("cloudfront", () => {
             },
           },
           ETag: "",
-        })
+        }),
       );
       updateDistribution.mockReturnValueOnce(awsResolve());
       await setSimpleAuthBehavior("distribution-id", null);
       expect(updateDistribution).toHaveBeenCalledTimes(1);
       expect(
         (updateDistribution.mock.calls[0][0] as any).DistributionConfig
-          .DefaultCacheBehavior.LambdaFunctionAssociations.Items
+          .DefaultCacheBehavior.LambdaFunctionAssociations.Items,
       ).toEqual([]);
     });
 
@@ -312,11 +312,11 @@ describe("cloudfront", () => {
             },
           },
           ETag: "",
-        })
+        }),
       );
       await setSimpleAuthBehavior(
         "distribution-id",
-        `some-arn:${lambdaPrefix}:1`
+        `some-arn:${lambdaPrefix}:1`,
       );
       expect(updateDistribution).not.toHaveBeenCalled();
     });
@@ -332,14 +332,14 @@ describe("cloudfront", () => {
             },
           },
           ETag: "",
-        })
+        }),
       );
       updateDistribution.mockReturnValueOnce(awsResolve());
       await setSimpleAuthBehavior("distribution-id", "some-arn:1");
       expect(updateDistribution).toHaveBeenCalledTimes(1);
       expect(
         (updateDistribution.mock.calls[0][0] as any).DistributionConfig
-          .DefaultCacheBehavior.LambdaFunctionAssociations.Items
+          .DefaultCacheBehavior.LambdaFunctionAssociations.Items,
       ).toEqual([
         {
           EventType: "viewer-request",
@@ -372,7 +372,7 @@ describe("cloudfront", () => {
   describe("updateCloudFrontDistribution", () => {
     const getDistributionConfigMock = jest.spyOn(
       cloudfront,
-      "getDistributionConfig"
+      "getDistributionConfig",
     );
     const updateDistribution = jest.spyOn(cloudfront, "updateDistribution");
 
@@ -387,7 +387,7 @@ describe("cloudfront", () => {
       },
       { shouldBlockBucketPublicAccess: false },
     ])(
-      "should not update the distribution if the right origin is already associated",
+      `should not update the distribution if the right origin is already associated %p`,
       async ({ shouldBlockBucketPublicAccess }) => {
         const domainName = "hello.lalilo.com";
         const originId = shouldBlockBucketPublicAccess
@@ -403,22 +403,19 @@ describe("cloudfront", () => {
         };
 
         getDistributionConfigMock.mockReturnValue(
-          awsResolve({ DistributionConfig: distribution })
+          awsResolve({ DistributionConfig: distribution }),
         );
 
-        await updateCloudFrontDistribution(
-          distribution.Id,
-          domainName,
+        await updateCloudFrontDistribution(distribution.Id, domainName, {
           shouldBlockBucketPublicAccess,
-          null
-        );
+          oac: null,
+        });
 
         expect(updateDistribution).not.toHaveBeenCalled();
-      }
+      },
     );
 
     it("should update the distribution with an OAC when shouldBlockBucketPublicAccess and oac is given", async () => {
-      const shouldBlockBucketPublicAccess = true;
       const domainName = "hello.lalilo.com";
       const originIdForPrivateBucket =
         getS3DomainNameForBlockedBucket(domainName);
@@ -433,16 +430,14 @@ describe("cloudfront", () => {
       };
 
       getDistributionConfigMock.mockReturnValue(
-        awsResolve({ DistributionConfig: distribution })
+        awsResolve({ DistributionConfig: distribution }),
       );
 
       updateDistribution.mockReturnValueOnce(awsResolve());
-      await updateCloudFrontDistribution(
-        distribution.Id,
-        domainName,
-        shouldBlockBucketPublicAccess,
-        oac
-      );
+      await updateCloudFrontDistribution(distribution.Id, domainName, {
+        shouldBlockBucketPublicAccess: true,
+        oac,
+      });
 
       expect(updateDistribution).toHaveBeenCalled();
       expect(updateDistribution).toHaveBeenCalledWith(
@@ -464,7 +459,7 @@ describe("cloudfront", () => {
               TargetOriginId: originIdForPrivateBucket,
             }),
           }),
-        })
+        }),
       );
     });
   });

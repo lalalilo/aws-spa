@@ -416,9 +416,12 @@ const updateLambdaFunctionAssociations = async (
 export const updateCloudFrontDistribution = async (
   distributionId: string,
   domainName: string,
-  shouldBlockBucketPublicAccess: boolean,
-  oac: OAC | null,
+  options: {
+    shouldBlockBucketPublicAccess: boolean;
+    oac: OAC | null;
+  },
 ) => {
+  const { shouldBlockBucketPublicAccess, oac } = options;
   try {
     const { DistributionConfig, ETag } = await cloudfront
       .getDistributionConfig({ Id: distributionId })
