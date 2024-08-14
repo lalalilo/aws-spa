@@ -56,8 +56,15 @@ yargs
           type: "boolean",
           default: false,
           describe: `Use a REST API endpoint as the origin, and restrict access with an OAC".
-
+ 
           This is useful if you want to keep your bucket private. This would not work for multiple versions hosted in the same s3 bucket.`,
+        })
+        .option("noDefaultRootObject", {
+          type: "boolean",
+          default: false,
+          describe: `Don't set the default route object to index.html. 
+          
+          This is useful if you want to host multiple versions of the app in the same s3 bucket.`,
         });
     },
     async (argv) => {
@@ -73,7 +80,8 @@ yargs
           argv.cacheBustedPrefix,
           argv.credentials || process.env.AWS_SPA_CREDENTIALS,
           argv.noPrompt,
-          argv.shouldBlockBucketPublicAccess
+          argv.shouldBlockBucketPublicAccess,
+          argv.noDefaultRootObject
         );
         logger.info("✅ done!");
         process.exit(0);

@@ -46,6 +46,7 @@ export const deploy = async (
   credentials: string | undefined,
   noPrompt: boolean,
   shouldBlockBucketPublicAccess: boolean,
+  noDefaultRootObject: boolean
 ) => {
   await predeployPrompt(Boolean(process.env.CI), noPrompt);
 
@@ -54,7 +55,7 @@ export const deploy = async (
   logger.info(
     `✨ Deploying "${folder}" on "${domainName}" with path "${
       s3Folder || "/"
-    }"...`,
+    }"...`
   );
 
   if (!existsSync(folder)) {
@@ -91,6 +92,7 @@ export const deploy = async (
     distribution = await createCloudFrontDistribution(
       domainName,
       certificateArn,
+      noDefaultRootObject
     );
   }
 
@@ -98,6 +100,7 @@ export const deploy = async (
     const oac = await upsertOriginAccessControl(domainName, distribution.Id);
     await updateCloudFrontDistribution(distribution.Id, domainName, {
       shouldBlockBucketPublicAccess: true,
+      noDefaultRootObject,
       oac,
     });
     await removeBucketWebsite(domainName);
@@ -106,6 +109,7 @@ export const deploy = async (
   } else {
     await updateCloudFrontDistribution(distribution.Id, domainName, {
       shouldBlockBucketPublicAccess: false,
+      noDefaultRootObject,
       oac: null,
     });
     await setBucketWebsite(domainName);
@@ -117,7 +121,7 @@ export const deploy = async (
   if (credentials) {
     const simpleAuthLambdaARN = await deploySimpleAuthLambda(
       domainName,
-      credentials,
+      credentials
     );
     await setSimpleAuthBehavior(distribution.Id, simpleAuthLambdaARN);
   } else {
@@ -135,6 +139,6 @@ export const deploy = async (
   await invalidateCloudfrontCacheWithRetry(
     distribution.Id,
     getCacheInvalidations(cacheInvalidations, s3Folder),
-    wait,
+    wait
   );
 };
