@@ -3,26 +3,26 @@ export const getAll = async <Entity>(
     nextMarker: undefined | string,
     page: number
   ) => Promise<{
-    items: Entity[];
-    nextMarker: undefined | string;
+    items: Entity[]
+    nextMarker: undefined | string
   }>
 ) => {
-  let nextMarker: string | undefined = undefined;
-  let page = 0;
-  const entities: Entity[] = [];
+  let nextMarker: string | undefined = undefined
+  let page = 0
+  const entities: Entity[] = []
   while (true) {
-    page++;
+    page++
     const entitiesResponse: {
-      items: Entity[];
-      nextMarker: undefined | string;
-    } = await getPageEntities(nextMarker, page);
+      items: Entity[]
+      nextMarker: undefined | string
+    } = await getPageEntities(nextMarker, page)
 
-    entities.push(...entitiesResponse.items);
+    entities.push(...entitiesResponse.items)
 
     if (entitiesResponse.nextMarker) {
-      nextMarker = entitiesResponse.nextMarker;
+      nextMarker = entitiesResponse.nextMarker
     } else {
-      return entities;
+      return entities
     }
   }
-};
+}

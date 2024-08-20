@@ -1,28 +1,28 @@
-import { AWSError } from "aws-sdk";
+import { AWSError } from 'aws-sdk'
 import CloudFront, {
   DistributionConfig,
   DistributionSummary,
   LambdaFunctionAssociationList,
   Tag,
-} from "aws-sdk/clients/cloudfront";
-import { PromiseResult } from "aws-sdk/lib/request";
-import { getAll } from "../aws-helper";
+} from 'aws-sdk/clients/cloudfront'
+import { PromiseResult } from 'aws-sdk/lib/request'
+import { getAll } from '../aws-helper'
 import {
   cloudfront,
   getOriginId,
   getS3DomainName,
   getS3DomainNameForBlockedBucket,
-} from "../aws-services";
-import { lambdaPrefix } from "../lambda";
-import { logger } from "../logger";
-import { OAC, isRightOriginAlreadyAssociated } from "./origin-access";
+} from '../aws-services'
+import { lambdaPrefix } from '../lambda'
+import { logger } from '../logger'
+import { OAC, isRightOriginAlreadyAssociated } from './origin-access'
 
-const DEFAULT_ROOT_OBJECT = "index.html";
+const DEFAULT_ROOT_OBJECT = 'index.html'
 
 export interface DistributionIdentificationDetail {
-  Id: string;
-  ARN: string;
-  DomainName: string;
+  Id: string
+  ARN: string
+  DomainName: string
 }
 
 export const findDeployedCloudfrontDistribution = async (
@@ -32,72 +32,72 @@ export const findDeployedCloudfrontDistribution = async (
     async (nextMarker, page) => {
       logger.info(
         `[CloudFront] 🔍 Searching cloudfront distribution (page ${page})...`
-      );
+      )
 
       const { DistributionList } = await cloudfront
         .listDistributions({
           Marker: nextMarker,
         })
-        .promise();
+        .promise()
 
       if (!DistributionList) {
-        return { items: [], nextMarker: undefined };
+        return { items: [], nextMarker: undefined }
       }
 
       return {
         items: DistributionList.Items || [],
         nextMarker: DistributionList.NextMarker,
-      };
+      }
     }
-  );
+  )
 
-  const distribution = distributions.find((_distribution) =>
+  const distribution = distributions.find(_distribution =>
     Boolean(
       _distribution.Aliases.Items &&
         _distribution.Aliases.Items.includes(domainName)
     )
-  );
+  )
 
   if (!distribution) {
-    logger.info(`[CloudFront] 😬 No matching distribution`);
-    return null;
+    logger.info(`[CloudFront] 😬 No matching distribution`)
+    return null
   }
 
   const { Tags } = await cloudfront
     .listTagsForResource({ Resource: distribution.ARN })
-    .promise();
+    .promise()
   if (
     !Tags ||
     !Tags.Items ||
     !Tags.Items.find(
-      (tag) =>
+      tag =>
         tag.Key === identifyingTag.Key && tag.Value === identifyingTag.Value
     )
   ) {
     throw new Error(
       `CloudFront distribution ${distribution.Id} has no tag ${identifyingTag.Key}:${identifyingTag.Value}`
-    );
+    )
   }
 
-  logger.info(`[CloudFront] 👍 Distribution found: ${distribution.Id}`);
+  logger.info(`[CloudFront] 👍 Distribution found: ${distribution.Id}`)
 
-  if (["InProgress", "In Progress"].includes(distribution.Status)) {
+  if (['InProgress', 'In Progress'].includes(distribution.Status)) {
     logger.info(
       `[CloudFront] ⏱ Waiting for distribution to be deployed. This step might takes up to 25 minutes...`
-    );
+    )
     await cloudfront
-      .waitFor("distributionDeployed", { Id: distribution.Id })
-      .promise();
+      .waitFor('distributionDeployed', { Id: distribution.Id })
+      .promise()
   }
-  return distribution;
-};
+  return distribution
+}
 
 export const tagCloudFrontDistribution = async (
   distribution: DistributionIdentificationDetail
 ) => {
   logger.info(
     `[CloudFront] ✏️ Tagging "${distribution.Id}" bucket with "${identifyingTag.Key}:${identifyingTag.Value}"...`
-  );
+  )
   await cloudfront
     .tagResource({
       Resource: distribution.ARN,
@@ -105,8 +105,8 @@ export const tagCloudFrontDistribution = async (
         Items: [identifyingTag],
       },
     })
-    .promise();
-};
+    .promise()
+}
 
 export const createCloudFrontDistribution = async (
   domainName: string,
@@ -117,7 +117,7 @@ export const createCloudFrontDistribution = async (
     `[CloudFront] ✏️ Creating Cloudfront distribution with origin "${getS3DomainName(
       domainName
     )}"...`
-  );
+  )
 
   const { Distribution } = await cloudfront
     .createDistribution({
@@ -127,22 +127,22 @@ export const createCloudFrontDistribution = async (
         noDefaultRootObject
       ),
     })
-    .promise();
+    .promise()
 
   if (!Distribution) {
-    throw new Error("[CloudFront] Could not create distribution");
+    throw new Error('[CloudFront] Could not create distribution')
   }
 
-  await tagCloudFrontDistribution(Distribution);
+  await tagCloudFrontDistribution(Distribution)
 
   logger.info(
     `[CloudFront] ⏱ Waiting for distribution to be available. This step might takes up to 25 minutes...`
-  );
+  )
   await cloudfront
-    .waitFor("distributionDeployed", { Id: Distribution.Id })
-    .promise();
-  return Distribution;
-};
+    .waitFor('distributionDeployed', { Id: Distribution.Id })
+    .promise()
+  return Distribution
+}
 
 const getBaseDistributionConfig = (
   domainName: string,
@@ -163,10 +163,10 @@ const getBaseDistributionConfig = (
         CustomOriginConfig: {
           HTTPPort: 80,
           HTTPSPort: 443,
-          OriginProtocolPolicy: "http-only",
+          OriginProtocolPolicy: 'http-only',
           OriginSslProtocols: {
             Quantity: 1,
-            Items: ["TLSv1"],
+            Items: ['TLSv1'],
           },
           OriginReadTimeout: 30,
           OriginKeepaliveTimeout: 5,
@@ -175,18 +175,18 @@ const getBaseDistributionConfig = (
           Quantity: 0,
           Items: [],
         },
-        OriginPath: "",
+        OriginPath: '',
       },
     ],
   },
   Enabled: true,
-  Comment: "",
-  PriceClass: "PriceClass_All",
+  Comment: '',
+  PriceClass: 'PriceClass_All',
   Logging: {
     Enabled: false,
     IncludeCookies: false,
-    Bucket: "",
-    Prefix: "",
+    Bucket: '',
+    Prefix: '',
   },
   CacheBehaviors: {
     Quantity: 0,
@@ -196,20 +196,20 @@ const getBaseDistributionConfig = (
   },
   Restrictions: {
     GeoRestriction: {
-      RestrictionType: "none",
+      RestrictionType: 'none',
       Quantity: 0,
     },
   },
-  DefaultRootObject: noDefaultRootObject ? "" : DEFAULT_ROOT_OBJECT,
-  WebACLId: "",
-  HttpVersion: "http2",
+  DefaultRootObject: noDefaultRootObject ? '' : DEFAULT_ROOT_OBJECT,
+  WebACLId: '',
+  HttpVersion: 'http2',
   DefaultCacheBehavior: {
-    ViewerProtocolPolicy: "redirect-to-https",
+    ViewerProtocolPolicy: 'redirect-to-https',
     TargetOriginId: getOriginId(domainName),
     ForwardedValues: {
       QueryString: false,
       Cookies: {
-        Forward: "none",
+        Forward: 'none',
       },
       Headers: {
         Quantity: 0,
@@ -222,10 +222,10 @@ const getBaseDistributionConfig = (
     },
     AllowedMethods: {
       Quantity: 2,
-      Items: ["HEAD", "GET"],
+      Items: ['HEAD', 'GET'],
       CachedMethods: {
         Quantity: 2,
-        Items: ["HEAD", "GET"],
+        Items: ['HEAD', 'GET'],
       },
     },
     TrustedSigners: {
@@ -235,7 +235,7 @@ const getBaseDistributionConfig = (
     MinTTL: 0,
     DefaultTTL: 86400,
     MaxTTL: 31536000,
-    FieldLevelEncryptionId: "",
+    FieldLevelEncryptionId: '',
     LambdaFunctionAssociations: {
       Quantity: 0,
       Items: [],
@@ -245,47 +245,47 @@ const getBaseDistributionConfig = (
   },
   ViewerCertificate: {
     ACMCertificateArn: sslCertificateARN,
-    SSLSupportMethod: "sni-only",
-    MinimumProtocolVersion: "TLSv1.1_2016",
-    CertificateSource: "acm",
+    SSLSupportMethod: 'sni-only',
+    MinimumProtocolVersion: 'TLSv1.1_2016',
+    CertificateSource: 'acm',
   },
-});
+})
 
 export const invalidateCloudfrontCache = async (
   distributionId: string,
   paths: string,
   wait: boolean = false
 ) => {
-  logger.info("[CloudFront] ✏️ Creating invalidation...");
+  logger.info('[CloudFront] ✏️ Creating invalidation...')
   const { Invalidation } = await cloudfront
     .createInvalidation({
       DistributionId: distributionId,
       InvalidationBatch: {
         CallerReference: Date.now().toString(),
         Paths: {
-          Quantity: paths.split(",").length,
-          Items: paths.split(",").map((path) => path.trim()),
+          Quantity: paths.split(',').length,
+          Items: paths.split(',').map(path => path.trim()),
         },
       },
     })
-    .promise();
+    .promise()
 
   if (!Invalidation) {
-    return;
+    return
   }
 
   if (wait) {
     logger.info(
-      "[CloudFront] ⏱ Waiting for invalidation to be completed (can take up to 10 minutes)..."
-    );
+      '[CloudFront] ⏱ Waiting for invalidation to be completed (can take up to 10 minutes)...'
+    )
     await cloudfront
-      .waitFor("invalidationCompleted", {
+      .waitFor('invalidationCompleted', {
         DistributionId: distributionId,
         Id: Invalidation.Id,
       })
-      .promise();
+      .promise()
   }
-};
+}
 
 export const invalidateCloudfrontCacheWithRetry = async (
   distributionId: string,
@@ -297,7 +297,7 @@ export const invalidateCloudfrontCacheWithRetry = async (
   AWSError
 > | void> => {
   try {
-    return await invalidateCloudfrontCache(distributionId, paths, wait);
+    return await invalidateCloudfrontCache(distributionId, paths, wait)
   } catch (error) {
     if (count < 4) {
       return await invalidateCloudfrontCacheWithRetry(
@@ -305,16 +305,16 @@ export const invalidateCloudfrontCacheWithRetry = async (
         paths,
         wait,
         count + 1
-      );
+      )
     }
-    throw error;
+    throw error
   }
-};
+}
 
 export const identifyingTag: Tag = {
-  Key: "managed-by-aws-spa",
-  Value: "v1",
-};
+  Key: 'managed-by-aws-spa',
+  Value: 'v1',
+}
 
 export const setSimpleAuthBehavior = async (
   distributionId: string,
@@ -322,77 +322,73 @@ export const setSimpleAuthBehavior = async (
 ) => {
   const { DistributionConfig, ETag } = await cloudfront
     .getDistributionConfig({ Id: distributionId })
-    .promise();
+    .promise()
 
   const lambdaConfigs =
-    DistributionConfig!.DefaultCacheBehavior.LambdaFunctionAssociations!.Items!;
+    DistributionConfig!.DefaultCacheBehavior.LambdaFunctionAssociations!.Items!
 
   if (lambdaFunctionARN === null) {
     logger.info(
       `[CloudFront] 📚 No basic auth configured. Checking if there is a basic auth to remove...`
-    );
+    )
     const updatedLambdaFunctions = lambdaConfigs.filter(
-      (config) => !config.LambdaFunctionARN.includes(lambdaPrefix)
-    );
+      config => !config.LambdaFunctionARN.includes(lambdaPrefix)
+    )
 
     if (updatedLambdaFunctions.length !== lambdaConfigs.length) {
       logger.info(
         `[CloudFront] 🗑 Removing lambda function association handling basic auth...`
-      );
+      )
 
       await updateLambdaFunctionAssociations(
         distributionId,
         DistributionConfig!,
         updatedLambdaFunctions,
         ETag!
-      );
-      logger.info(`[CloudFront] 👍 Lambda function association removed`);
+      )
+      logger.info(`[CloudFront] 👍 Lambda function association removed`)
     } else {
-      logger.info(`[CloudFront] 👍 No basic auth setup`);
+      logger.info(`[CloudFront] 👍 No basic auth setup`)
     }
-    return;
+    return
   }
 
-  logger.info(`[CloudFront] 📚 Checking if basic auth is already setup...`);
-  console.log(lambdaConfigs, lambdaFunctionARN);
+  logger.info(`[CloudFront] 📚 Checking if basic auth is already setup...`)
+  console.log(lambdaConfigs, lambdaFunctionARN)
   if (
-    lambdaConfigs.find(
-      (config) => config.LambdaFunctionARN === lambdaFunctionARN
-    )
+    lambdaConfigs.find(config => config.LambdaFunctionARN === lambdaFunctionARN)
   ) {
-    logger.info(`[CloudFront] 👍 Basic auth already setup`);
-    return;
+    logger.info(`[CloudFront] 👍 Basic auth already setup`)
+    return
   }
 
   logger.info(
     `[CloudFront] ✏️ Adding simple auth behavior (and replacing "viewer-request" lambda if any)...`
-  );
+  )
   await updateLambdaFunctionAssociations(
     distributionId,
     DistributionConfig!,
     [
-      ...lambdaConfigs.filter(
-        (config) => config.EventType !== "viewer-request"
-      ),
+      ...lambdaConfigs.filter(config => config.EventType !== 'viewer-request'),
       {
         LambdaFunctionARN: lambdaFunctionARN,
-        EventType: "viewer-request",
+        EventType: 'viewer-request',
         IncludeBody: false,
       },
     ],
     ETag!
-  );
-};
+  )
+}
 
 export const getCacheInvalidations = (
   cacheInvalidations: string,
   subFolder: string | undefined
 ) =>
   cacheInvalidations
-    .split(",")
-    .map((string) => string.trim().replace(/^\//, ""))
-    .map((string) => (subFolder ? `/${subFolder}/${string}` : `/${string}`))
-    .join(",");
+    .split(',')
+    .map(string => string.trim().replace(/^\//, ''))
+    .map(string => (subFolder ? `/${subFolder}/${string}` : `/${string}`))
+    .join(',')
 
 const updateLambdaFunctionAssociations = async (
   distributionId: string,
@@ -415,27 +411,27 @@ const updateLambdaFunctionAssociations = async (
         },
       },
     })
-    .promise();
-};
+    .promise()
+}
 
 export const updateCloudFrontDistribution = async (
   distributionId: string,
   domainName: string,
   options: {
-    shouldBlockBucketPublicAccess: boolean;
-    noDefaultRootObject: boolean;
-    oac: OAC | null;
+    shouldBlockBucketPublicAccess: boolean
+    noDefaultRootObject: boolean
+    oac: OAC | null
   }
 ) => {
-  const { shouldBlockBucketPublicAccess, oac, noDefaultRootObject } = options;
+  const { shouldBlockBucketPublicAccess, oac, noDefaultRootObject } = options
   try {
     const { DistributionConfig, ETag } = await cloudfront
       .getDistributionConfig({ Id: distributionId })
-      .promise();
+      .promise()
 
     logger.info(
       `[Cloudfront] ✏️ Update distribution configuration "${distributionId}"...`
-    );
+    )
 
     const distributionConfigUpdates = getDistributionConfigUpdates(
       getRootObjectUpdatedDistributionConfig(
@@ -448,13 +444,13 @@ export const updateCloudFrontDistribution = async (
         DistributionConfig!,
         shouldBlockBucketPublicAccess
       )
-    );
+    )
 
     if (Object.keys(distributionConfigUpdates).length === 0) {
       logger.info(
         `[Cloudfront] 👍 No updates needed for distribution "${distributionId}"`
-      );
-      return;
+      )
+      return
     }
 
     await cloudfront
@@ -466,43 +462,43 @@ export const updateCloudFrontDistribution = async (
           ...distributionConfigUpdates,
         },
       })
-      .promise();
+      .promise()
   } catch (error) {
-    throw error;
+    throw error
   }
-};
+}
 
 export const getDistributionConfigUpdates = (
   ...configs: Partial<CloudFront.DistributionConfig>[]
 ) =>
   configs.reduce((config, update) => {
-    const updatedProperties = Object.keys(update);
-    const hasDuplicatedProperty = Object.keys(config).find((property) =>
+    const updatedProperties = Object.keys(update)
+    const hasDuplicatedProperty = Object.keys(config).find(property =>
       updatedProperties.includes(property)
-    );
+    )
 
     if (hasDuplicatedProperty) {
-      throw new Error("Cannot update the same property multiple times");
+      throw new Error('Cannot update the same property multiple times')
     }
 
     return {
       ...config,
       ...update,
-    };
-  }, {});
+    }
+  }, {})
 
 const getRootObjectUpdatedDistributionConfig = (
   distributionConfig: CloudFront.DistributionConfig,
   noDefaultRootObject: boolean
 ) => {
   const updatedConfig = {
-    DefaultRootObject: noDefaultRootObject ? "" : DEFAULT_ROOT_OBJECT,
-  };
+    DefaultRootObject: noDefaultRootObject ? '' : DEFAULT_ROOT_OBJECT,
+  }
   return updatedConfig.DefaultRootObject ===
     distributionConfig.DefaultRootObject
     ? {}
-    : updatedConfig;
-};
+    : updatedConfig
+}
 
 const getPublicAccessUpdatedDistributionConfig = (
   domainName: string,
@@ -517,7 +513,7 @@ const getPublicAccessUpdatedDistributionConfig = (
       distributionConfig
     )
   ) {
-    return {};
+    return {}
   }
 
   if (shouldBlockBucketPublicAccess && originAccessControlId) {
@@ -530,9 +526,9 @@ const getPublicAccessUpdatedDistributionConfig = (
             DomainName: getS3DomainNameForBlockedBucket(domainName),
             OriginAccessControlId: originAccessControlId,
             S3OriginConfig: {
-              OriginAccessIdentity: "", //If you're using origin access control (OAC) instead of origin access identity, specify an empty OriginAccessIdentity element
+              OriginAccessIdentity: '', //If you're using origin access control (OAC) instead of origin access identity, specify an empty OriginAccessIdentity element
             },
-            OriginPath: "",
+            OriginPath: '',
             CustomHeaders: {
               Quantity: 0,
               Items: [],
@@ -544,7 +540,7 @@ const getPublicAccessUpdatedDistributionConfig = (
         ...distributionConfig.DefaultCacheBehavior,
         TargetOriginId: getS3DomainNameForBlockedBucket(domainName),
       },
-    };
+    }
   }
   return {
     Origins: {
@@ -556,10 +552,10 @@ const getPublicAccessUpdatedDistributionConfig = (
           CustomOriginConfig: {
             HTTPPort: 80,
             HTTPSPort: 443,
-            OriginProtocolPolicy: "http-only",
+            OriginProtocolPolicy: 'http-only',
             OriginSslProtocols: {
               Quantity: 1,
-              Items: ["TLSv1"],
+              Items: ['TLSv1'],
             },
             OriginReadTimeout: 30,
             OriginKeepaliveTimeout: 5,
@@ -568,7 +564,7 @@ const getPublicAccessUpdatedDistributionConfig = (
             Quantity: 0,
             Items: [],
           },
-          OriginPath: "",
+          OriginPath: '',
         },
       ],
     },
@@ -576,5 +572,5 @@ const getPublicAccessUpdatedDistributionConfig = (
       ...distributionConfig.DefaultCacheBehavior,
       TargetOriginId: getOriginId(domainName),
     },
-  };
-};
+  }
+}
