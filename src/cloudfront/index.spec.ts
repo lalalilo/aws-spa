@@ -2,186 +2,187 @@ import {
   createCloudFrontDistribution,
   findDeployedCloudfrontDistribution,
   getCacheInvalidations,
+  getDistributionConfigUpdates,
   identifyingTag,
   invalidateCloudfrontCache,
   invalidateCloudfrontCacheWithRetry,
   setSimpleAuthBehavior,
   updateCloudFrontDistribution,
-} from ".";
+} from '.'
 import {
   cloudfront,
   getOriginId,
   getS3DomainName,
   getS3DomainNameForBlockedBucket,
-} from "../aws-services";
-import { lambdaPrefix } from "../lambda";
-import { awsReject, awsResolve } from "../test-helper";
+} from '../aws-services'
+import { lambdaPrefix } from '../lambda'
+import { awsReject, awsResolve } from '../test-helper'
 
-describe("cloudfront", () => {
-  describe("findDeployedCloudfrontDistribution", () => {
-    const listDistributionMock = jest.spyOn(cloudfront, "listDistributions");
+describe('cloudfront', () => {
+  describe('findDeployedCloudfrontDistribution', () => {
+    const listDistributionMock = jest.spyOn(cloudfront, 'listDistributions')
     const listTagsForResourceMock = jest.spyOn(
       cloudfront,
-      "listTagsForResource",
-    );
-    const waitForMock = jest.spyOn(cloudfront, "waitFor");
+      'listTagsForResource'
+    )
+    const waitForMock = jest.spyOn(cloudfront, 'waitFor')
 
     afterEach(() => {
-      listDistributionMock.mockReset();
-      listTagsForResourceMock.mockReset();
-      waitForMock.mockReset();
-    });
+      listDistributionMock.mockReset()
+      listTagsForResourceMock.mockReset()
+      waitForMock.mockReset()
+    })
 
-    it("should return the distribution even if on page 2", async () => {
+    it('should return the distribution even if on page 2', async () => {
       listDistributionMock
         .mockReturnValueOnce(
           awsResolve({
             DistributionList: {
-              NextMarker: "xxx",
+              NextMarker: 'xxx',
               Items: [
                 {
-                  Id: "GOODBYE",
+                  Id: 'GOODBYE',
                   Aliases: {
-                    Items: ["goodbye.example.com"],
+                    Items: ['goodbye.example.com'],
                   },
                 },
               ],
             },
-          }),
+          })
         )
         .mockReturnValueOnce(
           awsResolve({
             DistributionList: {
               Items: [
                 {
-                  Id: "HELLO",
-                  Status: "Deployed",
+                  Id: 'HELLO',
+                  Status: 'Deployed',
                   Aliases: {
-                    Items: ["hello.example.com"],
+                    Items: ['hello.example.com'],
                   },
                 },
               ],
             },
-          }),
-        );
+          })
+        )
 
       listTagsForResourceMock.mockReturnValue(
         awsResolve({
           Tags: {
             Items: [identifyingTag],
           },
-        }),
-      );
+        })
+      )
 
       const distribution: any =
-        await findDeployedCloudfrontDistribution("hello.example.com");
-      expect(distribution).toBeDefined();
-      expect(distribution.Id).toEqual("HELLO");
-    });
+        await findDeployedCloudfrontDistribution('hello.example.com')
+      expect(distribution).toBeDefined()
+      expect(distribution.Id).toEqual('HELLO')
+    })
 
-    it("should wait for distribution if distribution is not deployed", async () => {
+    it('should wait for distribution if distribution is not deployed', async () => {
       listDistributionMock.mockReturnValue(
         awsResolve({
           DistributionList: {
             Items: [
               {
-                Id: "HELLO",
-                Status: "In Progress",
+                Id: 'HELLO',
+                Status: 'In Progress',
                 Aliases: {
-                  Items: ["hello.example.com"],
+                  Items: ['hello.example.com'],
                 },
               },
             ],
           },
-        }),
-      );
+        })
+      )
 
       listTagsForResourceMock.mockReturnValue(
         awsResolve({
           Tags: {
             Items: [identifyingTag],
           },
-        }),
-      );
-      waitForMock.mockReturnValue(awsResolve());
+        })
+      )
+      waitForMock.mockReturnValue(awsResolve())
 
-      await findDeployedCloudfrontDistribution("hello.example.com");
-      expect(waitForMock).toHaveBeenCalledTimes(1);
-    });
-  });
+      await findDeployedCloudfrontDistribution('hello.example.com')
+      expect(waitForMock).toHaveBeenCalledTimes(1)
+    })
+  })
 
-  describe("invalidateCloudfrontCache", () => {
-    const createInvalidationMock = jest.spyOn(cloudfront, "createInvalidation");
-    const waitForMock = jest.spyOn(cloudfront, "waitFor");
+  describe('invalidateCloudfrontCache', () => {
+    const createInvalidationMock = jest.spyOn(cloudfront, 'createInvalidation')
+    const waitForMock = jest.spyOn(cloudfront, 'waitFor')
 
     afterEach(() => {
-      createInvalidationMock.mockReset();
-      waitForMock.mockReset();
-    });
+      createInvalidationMock.mockReset()
+      waitForMock.mockReset()
+    })
 
-    it("should invalidate the specified path", async () => {
-      createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }));
-      await invalidateCloudfrontCache("some-distribution-id", "index.html");
+    it('should invalidate the specified path', async () => {
+      createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }))
+      await invalidateCloudfrontCache('some-distribution-id', 'index.html')
 
-      expect(createInvalidationMock).toHaveBeenCalledTimes(1);
-      const invalidationParams: any = createInvalidationMock.mock.calls[0][0];
-      expect(invalidationParams.DistributionId).toEqual("some-distribution-id");
+      expect(createInvalidationMock).toHaveBeenCalledTimes(1)
+      const invalidationParams: any = createInvalidationMock.mock.calls[0][0]
+      expect(invalidationParams.DistributionId).toEqual('some-distribution-id')
       expect(invalidationParams.InvalidationBatch.Paths.Items[0]).toEqual(
-        "index.html",
-      );
-    });
+        'index.html'
+      )
+    })
 
-    it("should invalidate the specified paths", async () => {
-      createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }));
+    it('should invalidate the specified paths', async () => {
+      createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }))
       await invalidateCloudfrontCache(
-        "some-distribution-id",
-        "index.html, static/*",
-      );
+        'some-distribution-id',
+        'index.html, static/*'
+      )
 
-      expect(createInvalidationMock).toHaveBeenCalledTimes(1);
-      const invalidationParams: any = createInvalidationMock.mock.calls[0][0];
-      expect(invalidationParams.DistributionId).toEqual("some-distribution-id");
+      expect(createInvalidationMock).toHaveBeenCalledTimes(1)
+      const invalidationParams: any = createInvalidationMock.mock.calls[0][0]
+      expect(invalidationParams.DistributionId).toEqual('some-distribution-id')
       expect(invalidationParams.InvalidationBatch.Paths.Items).toEqual([
-        "index.html",
-        "static/*",
-      ]);
-    });
+        'index.html',
+        'static/*',
+      ])
+    })
 
-    it("should wait for invalidate if wait flag is true", async () => {
-      createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }));
-      waitForMock.mockReturnValue(awsResolve());
+    it('should wait for invalidate if wait flag is true', async () => {
+      createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }))
+      waitForMock.mockReturnValue(awsResolve())
       await invalidateCloudfrontCache(
-        "some-distribution-id",
-        "index.html",
-        true,
-      );
-      expect(waitForMock).toHaveBeenCalledTimes(1);
-      expect(waitForMock.mock.calls[0][0]).toEqual("invalidationCompleted");
-    });
-  });
+        'some-distribution-id',
+        'index.html',
+        true
+      )
+      expect(waitForMock).toHaveBeenCalledTimes(1)
+      expect(waitForMock.mock.calls[0][0]).toEqual('invalidationCompleted')
+    })
+  })
 
-  describe("invalidateCloudfrontCacheWithRetry", () => {
-    const createInvalidationMock = jest.spyOn(cloudfront, "createInvalidation");
-    const waitForMock = jest.spyOn(cloudfront, "waitFor");
+  describe('invalidateCloudfrontCacheWithRetry', () => {
+    const createInvalidationMock = jest.spyOn(cloudfront, 'createInvalidation')
+    const waitForMock = jest.spyOn(cloudfront, 'waitFor')
 
     afterEach(() => {
-      createInvalidationMock.mockReset();
-      waitForMock.mockReset();
-    });
-    it("should retry once", async () => {
+      createInvalidationMock.mockReset()
+      waitForMock.mockReset()
+    })
+    it('should retry once', async () => {
       createInvalidationMock
         .mockReturnValueOnce(awsReject(1))
-        .mockReturnValueOnce(awsResolve({ Invalidation: {} }));
+        .mockReturnValueOnce(awsResolve({ Invalidation: {} }))
 
       await invalidateCloudfrontCacheWithRetry(
-        "some-distribution-id",
-        "index.html, static/*",
-      );
+        'some-distribution-id',
+        'index.html, static/*'
+      )
 
-      expect(createInvalidationMock).toHaveBeenCalledTimes(2);
-    });
+      expect(createInvalidationMock).toHaveBeenCalledTimes(2)
+    })
 
-    it("should retry 5 times at most", async () => {
+    it('should retry 5 times at most', async () => {
       createInvalidationMock
         .mockReturnValueOnce(awsReject(1))
         .mockReturnValueOnce(awsReject(1))
@@ -190,80 +191,81 @@ describe("cloudfront", () => {
         .mockReturnValueOnce(awsReject(1))
         .mockReturnValueOnce(awsReject(1))
         .mockReturnValueOnce(awsReject(1))
-        .mockReturnValueOnce(awsResolve({ Invalidation: {} }));
+        .mockReturnValueOnce(awsResolve({ Invalidation: {} }))
 
       try {
         await invalidateCloudfrontCacheWithRetry(
-          "some-distribution-id",
-          "index.html, static/*",
-        );
+          'some-distribution-id',
+          'index.html, static/*'
+        )
       } catch (error) {
-        expect(error).toBeDefined();
+        expect(error).toBeDefined()
       }
 
-      expect(createInvalidationMock).toHaveBeenCalledTimes(5);
-    });
-  });
+      expect(createInvalidationMock).toHaveBeenCalledTimes(5)
+    })
+  })
 
-  describe("createCloudFrontDistribution", () => {
-    const createDistributionMock = jest.spyOn(cloudfront, "createDistribution");
-    const waitForMock = jest.spyOn(cloudfront, "waitFor");
-    const tagResourceMock = jest.spyOn(cloudfront, "tagResource");
+  describe('createCloudFrontDistribution', () => {
+    const createDistributionMock = jest.spyOn(cloudfront, 'createDistribution')
+    const waitForMock = jest.spyOn(cloudfront, 'waitFor')
+    const tagResourceMock = jest.spyOn(cloudfront, 'tagResource')
 
     afterEach(() => {
-      createDistributionMock.mockReset();
-      waitForMock.mockReset();
-      tagResourceMock.mockReset();
-    });
+      createDistributionMock.mockReset()
+      waitForMock.mockReset()
+      tagResourceMock.mockReset()
+    })
 
-    it("should create a distribution and wait for it to be available", async () => {
-      const distribution = { Id: "distribution-id" };
+    it('should create a distribution and wait for it to be available', async () => {
+      const distribution = { Id: 'distribution-id' }
       createDistributionMock.mockReturnValue(
-        awsResolve({ Distribution: distribution }),
-      );
-      tagResourceMock.mockReturnValue(awsResolve());
-      waitForMock.mockReturnValue(awsResolve());
+        awsResolve({ Distribution: distribution })
+      )
+      tagResourceMock.mockReturnValue(awsResolve())
+      waitForMock.mockReturnValue(awsResolve())
       const result = await createCloudFrontDistribution(
-        "hello.lalilo.com",
-        "arn:certificate",
-      );
-      expect(result).toBe(distribution);
-      expect(tagResourceMock).toHaveBeenCalledTimes(1);
-      expect(createDistributionMock).toHaveBeenCalledTimes(1);
-      const distributionParam: any = createDistributionMock.mock.calls[0][0];
-      const distributionConfig = distributionParam.DistributionConfig;
+        'hello.lalilo.com',
+        'arn:certificate',
+        false
+      )
+      expect(result).toBe(distribution)
+      expect(tagResourceMock).toHaveBeenCalledTimes(1)
+      expect(createDistributionMock).toHaveBeenCalledTimes(1)
+      const distributionParam: any = createDistributionMock.mock.calls[0][0]
+      const distributionConfig = distributionParam.DistributionConfig
       expect(distributionConfig.Origins.Items[0].DomainName).toEqual(
-        "hello.lalilo.com.s3-website.eu-west-3.amazonaws.com",
-      );
+        'hello.lalilo.com.s3-website.eu-west-3.amazonaws.com'
+      )
       expect(
-        distributionConfig.DefaultCacheBehavior.ViewerProtocolPolicy,
-      ).toEqual("redirect-to-https");
-      expect(distributionConfig.DefaultCacheBehavior.MinTTL).toEqual(0);
-      expect(distributionConfig.DefaultCacheBehavior.Compress).toEqual(true);
+        distributionConfig.DefaultCacheBehavior.ViewerProtocolPolicy
+      ).toEqual('redirect-to-https')
+      expect(distributionConfig.DefaultCacheBehavior.MinTTL).toEqual(0)
+      expect(distributionConfig.DefaultCacheBehavior.Compress).toEqual(true)
       expect(distributionConfig.ViewerCertificate.ACMCertificateArn).toEqual(
-        "arn:certificate",
-      );
+        'arn:certificate'
+      )
 
-      expect(waitForMock).toHaveBeenCalledTimes(1);
-      expect(waitForMock).toHaveBeenCalledWith("distributionDeployed", {
-        Id: "distribution-id",
-      });
-    });
-  });
+      expect(waitForMock).toHaveBeenCalledTimes(1)
+      expect(waitForMock).toHaveBeenCalledWith('distributionDeployed', {
+        Id: 'distribution-id',
+      })
+    })
+  })
 
-  describe("setSimpleAuthBehavior", () => {
+  describe('setSimpleAuthBehavior', () => {
     const getDistributionConfig = jest.spyOn(
       cloudfront,
-      "getDistributionConfig",
-    );
-    const updateDistribution = jest.spyOn(cloudfront, "updateDistribution");
+      'getDistributionConfig'
+    )
+    const updateDistribution = jest.spyOn(cloudfront, 'updateDistribution')
 
     beforeEach(() => {
-      getDistributionConfig.mockReset();
-      updateDistribution.mockReset();
-    });
+      getDistributionConfig.mockReset()
+      updateDistribution.mockReset()
+    })
 
-    it("should not update if there is no lambda association & no credentials", async () => {
+    it('should not update if there is no lambda association & no credentials', async () => {
       getDistributionConfig.mockReturnValueOnce(
         awsResolve({
           DistributionConfig: {
@@ -273,14 +275,14 @@ describe("cloudfront", () => {
               },
             },
           },
-          ETag: "",
-        }),
-      );
-      await setSimpleAuthBehavior("distribution-id", null);
-      expect(updateDistribution).not.toHaveBeenCalled();
-    });
+          ETag: '',
+        })
+      )
+      await setSimpleAuthBehavior('distribution-id', null)
+      expect(updateDistribution).not.toHaveBeenCalled()
+    })
 
-    it("should remove lambda association if lambda is set but no credential is set", async () => {
+    it('should remove lambda association if lambda is set but no credential is set', async () => {
       getDistributionConfig.mockReturnValueOnce(
         awsResolve({
           DistributionConfig: {
@@ -290,19 +292,19 @@ describe("cloudfront", () => {
               },
             },
           },
-          ETag: "",
-        }),
-      );
-      updateDistribution.mockReturnValueOnce(awsResolve());
-      await setSimpleAuthBehavior("distribution-id", null);
-      expect(updateDistribution).toHaveBeenCalledTimes(1);
+          ETag: '',
+        })
+      )
+      updateDistribution.mockReturnValueOnce(awsResolve())
+      await setSimpleAuthBehavior('distribution-id', null)
+      expect(updateDistribution).toHaveBeenCalledTimes(1)
       expect(
         (updateDistribution.mock.calls[0][0] as any).DistributionConfig
-          .DefaultCacheBehavior.LambdaFunctionAssociations.Items,
-      ).toEqual([]);
-    });
+          .DefaultCacheBehavior.LambdaFunctionAssociations.Items
+      ).toEqual([])
+    })
 
-    it("should not update if there is a lambda association & credentials", async () => {
+    it('should not update if there is a lambda association & credentials', async () => {
       getDistributionConfig.mockReturnValueOnce(
         awsResolve({
           DistributionConfig: {
@@ -312,17 +314,17 @@ describe("cloudfront", () => {
               },
             },
           },
-          ETag: "",
-        }),
-      );
+          ETag: '',
+        })
+      )
       await setSimpleAuthBehavior(
-        "distribution-id",
-        `some-arn:${lambdaPrefix}:1`,
-      );
-      expect(updateDistribution).not.toHaveBeenCalled();
-    });
+        'distribution-id',
+        `some-arn:${lambdaPrefix}:1`
+      )
+      expect(updateDistribution).not.toHaveBeenCalled()
+    })
 
-    it("should add lambda association if lambda is not set set but credentials are set", async () => {
+    it('should add lambda association if lambda is not set set but credentials are set', async () => {
       getDistributionConfig.mockReturnValueOnce(
         awsResolve({
           DistributionConfig: {
@@ -332,121 +334,131 @@ describe("cloudfront", () => {
               },
             },
           },
-          ETag: "",
-        }),
-      );
-      updateDistribution.mockReturnValueOnce(awsResolve());
-      await setSimpleAuthBehavior("distribution-id", "some-arn:1");
-      expect(updateDistribution).toHaveBeenCalledTimes(1);
+          ETag: '',
+        })
+      )
+      updateDistribution.mockReturnValueOnce(awsResolve())
+      await setSimpleAuthBehavior('distribution-id', 'some-arn:1')
+      expect(updateDistribution).toHaveBeenCalledTimes(1)
       expect(
         (updateDistribution.mock.calls[0][0] as any).DistributionConfig
-          .DefaultCacheBehavior.LambdaFunctionAssociations.Items,
+          .DefaultCacheBehavior.LambdaFunctionAssociations.Items
       ).toEqual([
         {
-          EventType: "viewer-request",
+          EventType: 'viewer-request',
           IncludeBody: false,
-          LambdaFunctionARN: "some-arn:1",
+          LambdaFunctionARN: 'some-arn:1',
         },
-      ]);
-    });
-  });
+      ])
+    })
+  })
 
-  describe("getCacheInvalidations", () => {
+  describe('getCacheInvalidations', () => {
     it.each([
-      { input: "index.html", expectedOutput: "/index.html" },
-      { input: "/index.html", expectedOutput: "/index.html" },
+      { input: 'index.html', expectedOutput: '/index.html' },
+      { input: '/index.html', expectedOutput: '/index.html' },
       {
-        input: "index.html, hello.html",
+        input: 'index.html, hello.html',
         subFolder: undefined,
-        expectedOutput: "/index.html,/hello.html",
+        expectedOutput: '/index.html,/hello.html',
       },
       {
-        input: "index.html",
-        subFolder: "some-branch",
-        expectedOutput: "/some-branch/index.html",
+        input: 'index.html',
+        subFolder: 'some-branch',
+        expectedOutput: '/some-branch/index.html',
       },
-    ])("add missing slash", ({ input, subFolder, expectedOutput }) => {
-      expect(getCacheInvalidations(input, subFolder)).toEqual(expectedOutput);
-    });
-  });
+    ])('add missing slash', ({ input, subFolder, expectedOutput }) => {
+      expect(getCacheInvalidations(input, subFolder)).toEqual(expectedOutput)
+    })
+  })
 
-  describe("updateCloudFrontDistribution", () => {
+  describe('updateCloudFrontDistribution', () => {
     const getDistributionConfigMock = jest.spyOn(
       cloudfront,
-      "getDistributionConfig",
-    );
-    const updateDistribution = jest.spyOn(cloudfront, "updateDistribution");
+      'getDistributionConfig'
+    )
+    const updateDistribution = jest.spyOn(cloudfront, 'updateDistribution')
 
     beforeEach(() => {
-      getDistributionConfigMock.mockReset();
-      updateDistribution.mockReset();
-    });
+      getDistributionConfigMock.mockReset()
+      updateDistribution.mockReset()
+    })
 
     it.each([
       {
         shouldBlockBucketPublicAccess: true,
+        noDefaultRootObject: false,
       },
-      { shouldBlockBucketPublicAccess: false },
+      { shouldBlockBucketPublicAccess: false, noDefaultRootObject: false },
+      {
+        shouldBlockBucketPublicAccess: true,
+        noDefaultRootObject: true,
+      },
+      { shouldBlockBucketPublicAccess: false, noDefaultRootObject: true },
     ])(
-      `should not update the distribution if the right origin is already associated %p`,
-      async ({ shouldBlockBucketPublicAccess }) => {
-        const domainName = "hello.lalilo.com";
+      `should not update the distribution if the configuration doesn't change %p`,
+      async ({ shouldBlockBucketPublicAccess, noDefaultRootObject }) => {
+        const domainName = 'hello.lalilo.com'
         const originId = shouldBlockBucketPublicAccess
           ? getS3DomainNameForBlockedBucket(domainName)
-          : getOriginId(domainName);
+          : getOriginId(domainName)
         const originDomainName = shouldBlockBucketPublicAccess
           ? getS3DomainNameForBlockedBucket(domainName)
-          : getS3DomainName(domainName);
+          : getS3DomainName(domainName)
 
         const distribution = {
-          Id: "distribution-id",
+          Id: 'distribution-id',
+          DefaultRootObject: noDefaultRootObject ? '' : 'index.html',
           Origins: { Items: [{ Id: originId, DomainName: originDomainName }] },
           DefaultCacheBehavior: {
             TargetOriginId: originId,
           },
-        };
+        }
 
         getDistributionConfigMock.mockReturnValue(
-          awsResolve({ DistributionConfig: distribution }),
-        );
+          awsResolve({ DistributionConfig: distribution })
+        )
 
         await updateCloudFrontDistribution(distribution.Id, domainName, {
           shouldBlockBucketPublicAccess,
+          noDefaultRootObject,
           oac: null,
-        });
+        })
 
-        expect(updateDistribution).not.toHaveBeenCalled();
-      },
-    );
+        expect(updateDistribution).not.toHaveBeenCalled()
+      }
+    )
 
-    it("should update the distribution with an OAC when shouldBlockBucketPublicAccess and oac is given", async () => {
-      const domainName = "hello.lalilo.com";
+    it('should update the distribution with an OAC when shouldBlockBucketPublicAccess and oac is given', async () => {
+      const domainName = 'hello.lalilo.com'
       const originIdForPrivateBucket =
-        getS3DomainNameForBlockedBucket(domainName);
+        getS3DomainNameForBlockedBucket(domainName)
 
-      const oac = { originAccessControl: { Id: "oac-id" }, ETag: "etag" };
+      const oac = { originAccessControl: { Id: 'oac-id' }, ETag: 'etag' }
       const distribution = {
-        Id: "distribution-id",
+        Id: 'distribution-id',
         Origins: { Items: [{ DomainName: getS3DomainName(domainName) }] },
         DefaultCacheBehavior: {
           TargetOriginId: getS3DomainName(domainName),
         },
-      };
+      }
 
       getDistributionConfigMock.mockReturnValue(
-        awsResolve({ DistributionConfig: distribution }),
-      );
+        awsResolve({ DistributionConfig: distribution })
+      )
 
-      updateDistribution.mockReturnValueOnce(awsResolve());
+      updateDistribution.mockReturnValueOnce(awsResolve())
       await updateCloudFrontDistribution(distribution.Id, domainName, {
         shouldBlockBucketPublicAccess: true,
+        noDefaultRootObject: false,
         oac,
-      });
+      })
 
-      expect(updateDistribution).toHaveBeenCalled();
+      expect(updateDistribution).toHaveBeenCalled()
       expect(updateDistribution).toHaveBeenCalledWith(
         expect.objectContaining({
           DistributionConfig: expect.objectContaining({
+            DefaultRootObject: 'index.html',
             Origins: expect.objectContaining({
               Items: [
                 expect.objectContaining({
@@ -454,7 +466,7 @@ describe("cloudfront", () => {
                   DomainName: originIdForPrivateBucket,
                   OriginAccessControlId: oac.originAccessControl.Id,
                   S3OriginConfig: {
-                    OriginAccessIdentity: "",
+                    OriginAccessIdentity: '',
                   },
                 }),
               ],
@@ -463,8 +475,83 @@ describe("cloudfront", () => {
               TargetOriginId: originIdForPrivateBucket,
             }),
           }),
-        }),
-      );
-    });
-  });
-});
+        })
+      )
+    })
+
+    it.each([{ noDefaultRootObject: false }, { noDefaultRootObject: true }])(
+      `should update the distribution if the defaultRootObject if different from the existing config (and not touch to other config) %p`,
+      async ({ noDefaultRootObject }) => {
+        const domainName = 'hello.lalilo.com'
+        const originIdForPrivateBucket =
+          getS3DomainNameForBlockedBucket(domainName)
+
+        const oac = { originAccessControl: { Id: 'oac-id' }, ETag: 'etag' }
+        const distribution = {
+          Id: 'distribution-id',
+          Origins: { Items: [{ DomainName: originIdForPrivateBucket }] },
+          DefaultCacheBehavior: {
+            TargetOriginId: originIdForPrivateBucket,
+          },
+          DefaultRootObject: noDefaultRootObject ? 'index.html' : '',
+        }
+
+        const originalConfig = awsResolve({ DistributionConfig: distribution })
+
+        getDistributionConfigMock.mockReturnValue(originalConfig)
+
+        updateDistribution.mockReturnValueOnce(awsResolve())
+        await updateCloudFrontDistribution(distribution.Id, domainName, {
+          shouldBlockBucketPublicAccess: true,
+          noDefaultRootObject,
+          oac,
+        })
+
+        expect(updateDistribution).toHaveBeenCalled()
+        expect(updateDistribution).toHaveBeenCalledWith(
+          expect.objectContaining({
+            DistributionConfig: expect.objectContaining({
+              DefaultRootObject: noDefaultRootObject ? '' : 'index.html',
+              Origins: expect.objectContaining({
+                Items: [
+                  expect.objectContaining({
+                    DomainName: originIdForPrivateBucket,
+                  }),
+                ],
+              }),
+              DefaultCacheBehavior: expect.objectContaining({
+                TargetOriginId: originIdForPrivateBucket,
+              }),
+            }),
+          })
+        )
+      }
+    )
+
+    it('should throw an error if the same configuration key is updated multiple times', async () => {
+      const distribution = awsResolve({
+        DistributionConfig: {
+          DefaultCacheBehavior: {
+            LambdaFunctionAssociations: {
+              Items: [],
+            },
+          },
+        },
+        ETag: '',
+      })
+
+      expect.hasAssertions()
+      try {
+        getDistributionConfigUpdates(
+          distribution,
+          { DefaultRootObject: '' },
+          { DefaultRootObject: '' }
+        )
+      } catch (e: any) {
+        expect(e.message).toEqual(
+          'Cannot update the same property multiple times'
+        )
+      }
+    })
+  })
+})
