@@ -19,6 +19,10 @@ import { OAC, isRightOriginAlreadyAssociated } from './origin-access'
 
 const DEFAULT_ROOT_OBJECT = 'index.html'
 
+const NO_DEFAULT_ROOT_OBJECT_REDIRECTION_FUNCTION_NAME =
+  'noDefaultRouteObjectRedirection'
+const NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR = 'yellow'
+
 export interface DistributionIdentificationDetail {
   Id: string
   ARN: string
@@ -119,12 +123,19 @@ export const createCloudFrontDistribution = async (
     )}"...`
   )
 
+  let noDefaultRootObjectFunctionARN: string | undefined
+
+  if (noDefaultRootObject) {
+    noDefaultRootObjectFunctionARN =
+      await createAndPublishNoDefaultRootObjectRedirectionFunction()
+  }
+
   const { Distribution } = await cloudfront
     .createDistribution({
       DistributionConfig: getBaseDistributionConfig(
         domainName,
         sslCertificateARN,
-        noDefaultRootObject
+        noDefaultRootObjectFunctionARN
       ),
     })
     .promise()
@@ -141,13 +152,110 @@ export const createCloudFrontDistribution = async (
   await cloudfront
     .waitFor('distributionDeployed', { Id: Distribution.Id })
     .promise()
+
   return Distribution
+}
+
+const createAndPublishNoDefaultRootObjectRedirectionFunction = async () => {
+  const cloudFrontRedirectionFunctionName =
+    NO_DEFAULT_ROOT_OBJECT_REDIRECTION_FUNCTION_NAME +
+    '_' +
+    NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR
+
+  let functionARN = await isCloudFrontFunctionExisting(
+    cloudFrontRedirectionFunctionName
+  )
+
+  if (!functionARN) {
+    const { createdFunctionETag, createdFunctionARN } =
+      await createNoDefaultRootObjectFunction(cloudFrontRedirectionFunctionName)
+
+    functionARN = createdFunctionARN
+
+    if (createdFunctionETag) {
+      await publishCloudFrontFunction(
+        cloudFrontRedirectionFunctionName,
+        createdFunctionETag
+      )
+    }
+
+    if (!functionARN) {
+      throw new Error(
+        `[CloudFront] Could not create lambda function to handle redirection for no default root object`
+      )
+    }
+
+    return functionARN
+  }
+}
+
+const isCloudFrontFunctionExisting = async (name: string) => {
+  let existingFunctionARN: string | undefined
+  cloudfront
+    .listFunctions((err, data) => {
+      if (err) {
+        logger.error(`[CloudFront] Error listing lambda functions: ${err}`)
+      }
+      existingFunctionARN = data.FunctionList?.Items?.find(item => {
+        item.Name === name
+      })?.FunctionMetadata.FunctionARN
+    })
+    .promise()
+  return existingFunctionARN
+}
+
+const createNoDefaultRootObjectFunction = async (functionName: string) => {
+  logger.info(
+    `[CloudFront] ✏️ Creating lambda function to handle redirection for no default root object...`
+  )
+  let createdFunctionETag: string | undefined
+  let createdFunctionARN: string | undefined
+  await cloudfront
+    .createFunction(
+      {
+        Name: functionName,
+        FunctionCode: `noDefaultRootObjectFunction_${NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR}.js`,
+        FunctionConfig: {
+          Runtime: 'cloudfront-js-1.0',
+          Comment:
+            'Redirects to branch specific index.html when no default root object is set',
+        },
+      },
+      (err, data) => {
+        if (err) {
+          logger.error(`[CloudFront] Error creating lambda function: ${err}`)
+        }
+        createdFunctionARN = data.FunctionSummary?.FunctionMetadata.FunctionARN
+        createdFunctionETag = data.ETag
+      }
+    )
+    .promise()
+  return { createdFunctionETag, createdFunctionARN }
+}
+
+const publishCloudFrontFunction = async (name: string, etag: string) => {
+  logger.info(
+    `[CloudFront] ✏️ Publish lambda function to handle redirection for no default root object...`
+  )
+  await cloudfront
+    .publishFunction(
+      {
+        Name: name,
+        IfMatch: etag,
+      },
+      err => {
+        if (err) {
+          logger.error(`[CloudFront] Error publishing lambda function: ${err}`)
+        }
+      }
+    )
+    .promise()
 }
 
 const getBaseDistributionConfig = (
   domainName: string,
   sslCertificateARN: string,
-  noDefaultRootObject: boolean
+  noDefaultRootObjectFunctionARN: string | undefined
 ): DistributionConfig => ({
   CallerReference: Date.now().toString(),
   Aliases: {
@@ -200,10 +308,23 @@ const getBaseDistributionConfig = (
       Quantity: 0,
     },
   },
-  DefaultRootObject: noDefaultRootObject ? '' : DEFAULT_ROOT_OBJECT,
+  DefaultRootObject:
+    noDefaultRootObjectFunctionARN !== undefined ? '' : DEFAULT_ROOT_OBJECT,
   WebACLId: '',
   HttpVersion: 'http2',
   DefaultCacheBehavior: {
+    FunctionAssociations:
+      noDefaultRootObjectFunctionARN !== undefined
+        ? {
+            Quantity: 1,
+            Items: [
+              {
+                FunctionARN: noDefaultRootObjectFunctionARN,
+                EventType: 'origin-request',
+              },
+            ],
+          }
+        : undefined,
     ViewerProtocolPolicy: 'redirect-to-https',
     TargetOriginId: getOriginId(domainName),
     ForwardedValues: {
