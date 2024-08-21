@@ -1,4 +1,4 @@
-import { S3, ACM, CloudFront, Route53, Lambda, IAM } from 'aws-sdk'
+import { ACM, CloudFront, IAM, Lambda, Route53, S3 } from 'aws-sdk'
 
 // Bucket region must be fixed so that website endpoint is fixe
 // https://docs.aws.amazon.com/fr_fr/general/latest/gr/s3.html
