@@ -2,12 +2,11 @@ import {
   createCloudFrontDistribution,
   findDeployedCloudfrontDistribution,
   getCacheInvalidations,
-  getDistributionConfigUpdates,
   identifyingTag,
   invalidateCloudfrontCache,
   invalidateCloudfrontCacheWithRetry,
   setSimpleAuthBehavior,
-  updateCloudFrontDistribution,
+  updateCloudFrontDistribution
 } from '.'
 import {
   cloudfront,
@@ -378,10 +377,16 @@ describe('cloudfront', () => {
       'getDistributionConfig'
     )
     const updateDistribution = jest.spyOn(cloudfront, 'updateDistribution')
+    const listFunctions = jest.spyOn(cloudfront, 'listFunctions')
+    const createFunction = jest.spyOn(cloudfront, 'createFunction')
+    const publishFunction = jest.spyOn(cloudfront, 'publishFunction')
 
     beforeEach(() => {
       getDistributionConfigMock.mockReset()
       updateDistribution.mockReset()
+      listFunctions.mockReturnValueOnce(awsResolve({ Functions: [] }))
+      publishFunction.mockReturnValue(awsResolve({}))
+      createFunction.mockReturnValue(awsResolve({ ETag: 'lol', FunctionSummary: { FunctionMetadata: { Id: 'oac-id', FunctionARN: 'plop' } } }))
     })
 
     it.each([
@@ -398,6 +403,13 @@ describe('cloudfront', () => {
     ])(
       `should not update the distribution if the configuration doesn't change %p`,
       async ({ shouldBlockBucketPublicAccess, noDefaultRootObject }) => {
+        if (noDefaultRootObject) {
+          listFunctions.mockReturnValueOnce(
+            awsResolve({
+              Functions: [{ FunctionConfig: { FunctionMetadata: { Id: 'oac-id', FunctionARN: 'plop' } } }],
+            })
+          )
+        }
         const domainName = 'hello.lalilo.com'
         const originId = shouldBlockBucketPublicAccess
           ? getS3DomainNameForBlockedBucket(domainName)
@@ -409,9 +421,16 @@ describe('cloudfront', () => {
         const distribution = {
           Id: 'distribution-id',
           DefaultRootObject: noDefaultRootObject ? '' : 'index.html',
-          Origins: { Items: [{ Id: originId, DomainName: originDomainName }] },
+          Origins: { Quantity: 1, Items: [{ Id: originId, DomainName: originDomainName }] },
           DefaultCacheBehavior: {
             TargetOriginId: originId,
+            ...(noDefaultRootObject && { FunctionAssociations: {
+              Quantity: 1,
+              Items: [{
+                FunctionARN: 'plop',
+                EventType: 'origin-request',
+              }]
+            }})
           },
         }
 
@@ -487,6 +506,7 @@ describe('cloudfront', () => {
           getS3DomainNameForBlockedBucket(domainName)
 
         const oac = { originAccessControl: { Id: 'oac-id' }, ETag: 'etag' }
+      
         const distribution = {
           Id: 'distribution-id',
           Origins: { Items: [{ DomainName: originIdForPrivateBucket }] },
@@ -527,31 +547,5 @@ describe('cloudfront', () => {
         )
       }
     )
-
-    it('should throw an error if the same configuration key is updated multiple times', async () => {
-      const distribution = awsResolve({
-        DistributionConfig: {
-          DefaultCacheBehavior: {
-            LambdaFunctionAssociations: {
-              Items: [],
-            },
-          },
-        },
-        ETag: '',
-      })
-
-      expect.hasAssertions()
-      try {
-        getDistributionConfigUpdates(
-          distribution,
-          { DefaultRootObject: '' },
-          { DefaultRootObject: '' }
-        )
-      } catch (e: any) {
-        expect(e.message).toEqual(
-          'Cannot update the same property multiple times'
-        )
-      }
-    })
   })
 })

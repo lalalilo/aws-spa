@@ -23,11 +23,6 @@ const NO_DEFAULT_ROOT_OBJECT_REDIRECTION_FUNCTION_NAME =
   'noDefaultRouteObjectRedirection'
 const NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR = 'yellow'
 
-interface CloudFrontFunctionUpdate {
-  newFunctionARN: string | undefined
-  oldFunctionARN: string | undefined
-}
-
 export interface DistributionIdentificationDetail {
   Id: string
   ARN: string
@@ -131,9 +126,9 @@ export const createCloudFrontDistribution = async (
   let noDefaultRootObjectFunctionARN: string | undefined
 
   if (noDefaultRootObject) {
-    const { newFunctionARN } =
+    const functionARN =
       await createAndPublishNoDefaultRootObjectRedirectionFunction()
-    noDefaultRootObjectFunctionARN = newFunctionARN
+    noDefaultRootObjectFunctionARN = functionARN
   }
 
   const { Distribution } = await cloudfront
@@ -168,15 +163,13 @@ const createAndPublishNoDefaultRootObjectRedirectionFunction = async () => {
     '_' +
     NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR
 
-  let functionARN = await isCloudFrontFunctionExisting(
-    cloudFrontRedirectionFunctionName
-  )
+    let functionARN = await isCloudFrontFunctionExisting(
+      cloudFrontRedirectionFunctionName
+    )
 
   if (!functionARN) {
     const { createdFunctionETag, createdFunctionARN } =
       await createNoDefaultRootObjectFunction(cloudFrontRedirectionFunctionName)
-
-    functionARN = createdFunctionARN
 
     if (createdFunctionETag) {
       await publishCloudFrontFunction(
@@ -185,18 +178,20 @@ const createAndPublishNoDefaultRootObjectRedirectionFunction = async () => {
       )
     }
 
-    if (!functionARN) {
+    if (!createdFunctionARN) {
       throw new Error(
         `[CloudFront] Could not create lambda function to handle redirection for no default root object`
       )
     }
+
+    functionARN = createdFunctionARN
   }
-  return { newFunctionARN: functionARN, oldFunctionARN: undefined }
+  return functionARN
 }
 
 const isCloudFrontFunctionExisting = async (name: string) => {
   let existingFunctionARN: string | undefined
-  cloudfront
+  await cloudfront
     .listFunctions((err, data) => {
       if (err) {
         logger.error(`[CloudFront] Error listing lambda functions: ${err}`)
@@ -215,7 +210,7 @@ const createNoDefaultRootObjectFunction = async (functionName: string) => {
   )
   let createdFunctionETag: string | undefined
   let createdFunctionARN: string | undefined
-  await cloudfront
+  const data = await cloudfront
     .createFunction(
       {
         Name: functionName,
@@ -226,15 +221,15 @@ const createNoDefaultRootObjectFunction = async (functionName: string) => {
             'Redirects to branch specific index.html when no default root object is set',
         },
       },
-      (err, data) => {
+      (err) => {
         if (err) {
           logger.error(`[CloudFront] Error creating lambda function: ${err}`)
         }
-        createdFunctionARN = data.FunctionSummary?.FunctionMetadata.FunctionARN
-        createdFunctionETag = data.ETag
       }
     )
     .promise()
+    createdFunctionARN = data.FunctionSummary?.FunctionMetadata.FunctionARN
+    createdFunctionETag = data.ETag
   return { createdFunctionETag, createdFunctionARN }
 }
 
@@ -250,7 +245,7 @@ const publishCloudFrontFunction = async (name: string, etag: string) => {
       },
       err => {
         if (err) {
-          logger.error(`[CloudFront] Error publishing lambda function: ${err}`)
+          throw new Error(`[CloudFront] Error publishing lambda function: ${err}`)
         }
       }
     )
@@ -314,7 +309,7 @@ const getBaseDistributionConfig = (
     },
   },
   DefaultRootObject:
-    noDefaultRootObjectFunctionARN !== undefined ? '' : DEFAULT_ROOT_OBJECT,
+    noDefaultRootObjectFunctionARN === undefined ? DEFAULT_ROOT_OBJECT : '',
   WebACLId: '',
   HttpVersion: 'http2',
   DefaultCacheBehavior: {
@@ -551,9 +546,9 @@ export const updateCloudFrontDistribution = async (
 ) => {
   const { shouldBlockBucketPublicAccess, oac, noDefaultRootObject } = options
   try {
-    let cloudfrontFunctionUpdate: CloudFrontFunctionUpdate | undefined
+    let functionARN: string | undefined
     if (noDefaultRootObject) {
-      cloudfrontFunctionUpdate =
+      functionARN =
         await createAndPublishNoDefaultRootObjectRedirectionFunction()
     }
 
@@ -565,22 +560,21 @@ export const updateCloudFrontDistribution = async (
       `[Cloudfront] ✏️ Update distribution configuration "${distributionId}"...`
     )
 
-    const distributionConfigUpdates = getDistributionConfigUpdates(
-      getRootObjectUpdatedDistributionConfig(
-        DistributionConfig!,
-        cloudfrontFunctionUpdate
-      ),
-      getPublicAccessUpdatedDistributionConfig(
+    const updatedDistributionConfig = updateDistributionConfigRootObject(
+      updateDistributionConfigPublicAccess(
         domainName,
         oac?.originAccessControl.Id,
         DistributionConfig!,
         shouldBlockBucketPublicAccess
-      )
+      ),
+      functionARN
     )
 
-    if (Object.keys(distributionConfigUpdates).length === 0) {
+    const shouldUpdateDistribution = isDistributionConfigUpdated(DistributionConfig!, updatedDistributionConfig)
+
+    if (!shouldUpdateDistribution) {
       logger.info(
-        `[Cloudfront] 👍 No updates needed for distribution "${distributionId}"`
+        `[Cloudfront] 👍 No updates needed for distribution "${distributionId}"`        
       )
       return
     }
@@ -589,10 +583,7 @@ export const updateCloudFrontDistribution = async (
       .updateDistribution({
         Id: distributionId,
         IfMatch: ETag,
-        DistributionConfig: {
-          ...DistributionConfig!,
-          ...distributionConfigUpdates,
-        },
+        DistributionConfig: updatedDistributionConfig,
       })
       .promise()
   } catch (error) {
@@ -600,63 +591,40 @@ export const updateCloudFrontDistribution = async (
   }
 }
 
-export const getDistributionConfigUpdates = (
-  ...configs: Partial<CloudFront.DistributionConfig>[]
-) =>
-  configs.reduce((config, update) => {
-    const updatedProperties = Object.keys(update)
-    const hasDuplicatedProperty = Object.keys(config).find(property =>
-      updatedProperties.includes(property)
-    )
+const isDistributionConfigUpdated = (
+  updatedDistributionConfig: CloudFront.DistributionConfig,
+  distributionConfig: CloudFront.DistributionConfig
+): boolean => JSON.stringify(updatedDistributionConfig) !== JSON.stringify(distributionConfig)
 
-    if (hasDuplicatedProperty) {
-      throw new Error('Cannot update the same property multiple times')
-    }
-
-    return {
-      ...config,
-      ...update,
-    }
-  }, {})
-
-const getRootObjectUpdatedDistributionConfig = (
+const updateDistributionConfigRootObject = (
   distributionConfig: CloudFront.DistributionConfig,
-  functionUpdate: CloudFrontFunctionUpdate | undefined
-) => {
-  const oldFunctionARN = functionUpdate?.oldFunctionARN
-  const newFunctionARN = functionUpdate?.newFunctionARN
-
-  const existingFunctions = (
-    distributionConfig.DefaultCacheBehavior.FunctionAssociations?.Items ?? []
-  ).filter(({ FunctionARN }) => FunctionARN !== oldFunctionARN)
-
-  const items = newFunctionARN
-    ? [
-        ...existingFunctions,
-        {
-          FunctionARN: newFunctionARN,
-          EventType: 'origin-request',
-        },
-      ]
-    : existingFunctions
-
+  functionARN: string | undefined
+): CloudFront.DistributionConfig => {
   return {
-    DefaultRootObject: newFunctionARN !== undefined ? '' : DEFAULT_ROOT_OBJECT,
-    CacheBehavior: {
-      FunctionAssociations: {
-        Quantity: existingFunctions.length + (newFunctionARN ? 1 : 0),
-        Items: items,
-      },
+    ...distributionConfig,
+    DefaultRootObject: functionARN === undefined ? DEFAULT_ROOT_OBJECT : '',
+    DefaultCacheBehavior: {
+      ...distributionConfig.DefaultCacheBehavior,
+      ...(functionARN && {FunctionAssociations: {
+        ...distributionConfig.DefaultCacheBehavior.FunctionAssociations,
+        Quantity: functionARN ? 1 : 0,
+        Items: [
+          {
+            FunctionARN: functionARN,
+            EventType: 'origin-request',
+          },
+        ],
+      }}),
     },
   }
 }
 
-const getPublicAccessUpdatedDistributionConfig = (
+const updateDistributionConfigPublicAccess = (
   domainName: string,
   originAccessControlId: string | undefined,
   distributionConfig: CloudFront.DistributionConfig,
   shouldBlockBucketPublicAccess: boolean
-) => {
+): CloudFront.DistributionConfig => {
   if (
     isRightOriginAlreadyAssociated(
       shouldBlockBucketPublicAccess,
@@ -664,12 +632,14 @@ const getPublicAccessUpdatedDistributionConfig = (
       distributionConfig
     )
   ) {
-    return {}
+    return distributionConfig
   }
 
   if (shouldBlockBucketPublicAccess && originAccessControlId) {
     return {
+      ...distributionConfig,
       Origins: {
+        ...distributionConfig.Origins,
         Quantity: 1,
         Items: [
           {
@@ -677,7 +647,7 @@ const getPublicAccessUpdatedDistributionConfig = (
             DomainName: getS3DomainNameForBlockedBucket(domainName),
             OriginAccessControlId: originAccessControlId,
             S3OriginConfig: {
-              OriginAccessIdentity: '', //If you're using origin access control (OAC) instead of origin access identity, specify an empty OriginAccessIdentity element
+              OriginAccessIdentity: '', // If you're using origin access control (OAC) instead of origin access identity, specify an empty OriginAccessIdentity element
             },
             OriginPath: '',
             CustomHeaders: {
@@ -694,7 +664,9 @@ const getPublicAccessUpdatedDistributionConfig = (
     }
   }
   return {
+    ...distributionConfig,
     Origins: {
+      ...distributionConfig.Origins,
       Quantity: 1,
       Items: [
         {
