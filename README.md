@@ -105,6 +105,10 @@ If a CloudFront distribution with this S3 bucket already exists, the script will
 - s3:CreateBucket
 - s3:PutObject
 
+- route53:ListHostedZones
+
+- acm:ListCertificates
+
 -**TODO**: complete missing policies
 
 ### If using simple auth
