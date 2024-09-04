@@ -106,10 +106,22 @@ If a CloudFront distribution with this S3 bucket already exists, the script will
 - s3:PutObject
 
 - route53:ListHostedZones
+- route53:CreateHostedZone
+- route53:ListResourceRecordSets
+- route53:ChangeResourceRecordSets
 
 - acm:ListCertificates
+- acm:DescribeCertificate
+- acm:RequestCertificate
 
--**TODO**: complete missing policies
+- lambda:CreateFunction
+- lambda:GetFunctionConfiguration
+- lambda:UpdateFunctionCode
+- lambda:UpdateFunctionConfiguration
+
+- iam:AttachRolePolicy
+- iam:CreateRole
+- iam:GetRole
 
 ### If using simple auth
 
