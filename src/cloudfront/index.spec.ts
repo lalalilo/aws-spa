@@ -438,11 +438,19 @@ describe('cloudfront', () => {
           awsResolve({ DistributionConfig: distribution })
         )
 
-        await updateCloudFrontDistribution(distribution.Id, domainName, {
-          shouldBlockBucketPublicAccess,
-          noDefaultRootObject,
-          oac: null,
-        })
+        if (shouldBlockBucketPublicAccess) {
+          await updateCloudFrontDistribution(distribution.Id, domainName, {
+            shouldBlockBucketPublicAccess,
+            noDefaultRootObject,
+            oac: { originAccessControl: { Id: 'oac-id' }, ETag: 'etag' }
+          }) 
+        } else {
+          await updateCloudFrontDistribution(distribution.Id, domainName, {
+            shouldBlockBucketPublicAccess,
+            noDefaultRootObject,
+            oac: null
+          })
+        }
 
         expect(updateDistribution).not.toHaveBeenCalled()
       }

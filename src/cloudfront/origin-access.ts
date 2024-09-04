@@ -1,8 +1,6 @@
 import { CloudFront } from 'aws-sdk'
 import {
-  cloudfront,
-  getS3DomainName,
-  getS3DomainNameForBlockedBucket,
+  cloudfront
 } from '../aws-services'
 import { logger } from '../logger'
 
@@ -96,22 +94,4 @@ export const cleanExistingOriginAccessControl = async (
     })
     .promise()
   return
-}
-
-export const isRightOriginAlreadyAssociated = (
-  shouldBlockBucketPublicAccess: boolean,
-  domainName: string,
-  distributionConfig: CloudFront.DistributionConfig | undefined
-) => {
-  if (shouldBlockBucketPublicAccess) {
-    const isOACAlreadyAssociated = distributionConfig?.Origins.Items.find(
-      o => o.DomainName === getS3DomainNameForBlockedBucket(domainName)
-    )
-    return isOACAlreadyAssociated
-  } else {
-    const isS3WebsiteAlreadyAssociated = distributionConfig?.Origins.Items.find(
-      o => o.DomainName === getS3DomainName(domainName)
-    )
-    return isS3WebsiteAlreadyAssociated
-  }
 }

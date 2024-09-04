@@ -15,7 +15,7 @@ import {
 } from '../aws-services'
 import { lambdaPrefix } from '../lambda'
 import { logger } from '../logger'
-import { OAC, isRightOriginAlreadyAssociated } from './origin-access'
+import { OAC } from './origin-access'
 
 const DEFAULT_ROOT_OBJECT = 'index.html'
 
@@ -535,42 +535,52 @@ const updateLambdaFunctionAssociations = async (
     .promise()
 }
 
+type UpdateCloudFrontDistributionOptions = {
+  shouldBlockBucketPublicAccess: true
+  noDefaultRootObject: boolean
+  oac: OAC
+} | {
+  shouldBlockBucketPublicAccess: false
+  noDefaultRootObject: boolean
+  oac: null
+}
+
 export const updateCloudFrontDistribution = async (
   distributionId: string,
   domainName: string,
-  options: {
-    shouldBlockBucketPublicAccess: boolean
-    noDefaultRootObject: boolean
-    oac: OAC | null
-  }
+  options: UpdateCloudFrontDistributionOptions
 ) => {
   const { shouldBlockBucketPublicAccess, oac, noDefaultRootObject } = options
   try {
     let functionARN: string | undefined
+    let updatedDistributionConfig: CloudFront.DistributionConfig
+    
+    const { DistributionConfig, ETag } = await cloudfront
+    .getDistributionConfig({ Id: distributionId })
+    .promise()
+    
     if (noDefaultRootObject) {
       functionARN =
         await createAndPublishNoDefaultRootObjectRedirectionFunction()
+        updatedDistributionConfig = addFunctionToDistribution(DistributionConfig!, functionARN)
+    } else {
+      updatedDistributionConfig = ensureFunctionIsNotAssociated(DistributionConfig!)
     }
-
-    const { DistributionConfig, ETag } = await cloudfront
-      .getDistributionConfig({ Id: distributionId })
-      .promise()
 
     logger.info(
       `[Cloudfront] ✏️ Update distribution configuration "${distributionId}"...`
     )
-
-    const updatedDistributionConfig = updateDistributionConfigRootObject(
-      updateDistributionConfigPublicAccess(
+    
+    if (shouldBlockBucketPublicAccess) {
+      updatedDistributionConfig = makeBucketPrivate(
         domainName,
-        oac?.originAccessControl.Id,
-        DistributionConfig!,
-        shouldBlockBucketPublicAccess
-      ),
-      functionARN
-    )
+        updatedDistributionConfig,
+        oac.originAccessControl.Id)
+    } else {
+      updatedDistributionConfig = makeBucketPublic(updatedDistributionConfig, domainName)
+    }
 
-    const shouldUpdateDistribution = isDistributionConfigUpdated(DistributionConfig!, updatedDistributionConfig)
+    const shouldUpdateDistribution = isDistributionConfigModified(DistributionConfig!, updatedDistributionConfig)
 
     if (!shouldUpdateDistribution) {
       logger.info(
@@ -591,78 +601,87 @@ export const updateCloudFrontDistribution = async (
   }
 }
 
-const isDistributionConfigUpdated = (
+const isDistributionConfigModified = (
   updatedDistributionConfig: CloudFront.DistributionConfig,
   distributionConfig: CloudFront.DistributionConfig
 ): boolean => JSON.stringify(updatedDistributionConfig) !== JSON.stringify(distributionConfig)
 
-const updateDistributionConfigRootObject = (
+const addFunctionToDistribution = (
   distributionConfig: CloudFront.DistributionConfig,
-  functionARN: string | undefined
-): CloudFront.DistributionConfig => {
-  return {
-    ...distributionConfig,
-    DefaultRootObject: functionARN === undefined ? DEFAULT_ROOT_OBJECT : '',
-    DefaultCacheBehavior: {
-      ...distributionConfig.DefaultCacheBehavior,
-      ...(functionARN && {FunctionAssociations: {
-        ...distributionConfig.DefaultCacheBehavior.FunctionAssociations,
-        Quantity: functionARN ? 1 : 0,
-        Items: [
-          {
-            FunctionARN: functionARN,
-            EventType: 'origin-request',
-          },
-        ],
-      }}),
+  functionARN: string
+): CloudFront.DistributionConfig => ({
+  ...distributionConfig,
+  DefaultRootObject: '',
+  DefaultCacheBehavior: {...distributionConfig.DefaultCacheBehavior,
+    FunctionAssociations: {
+      Quantity: 1,
+      Items: [{
+        FunctionARN: functionARN,
+        EventType: 'origin-request',
+      }],
     },
+  },
+})
+
+const ensureFunctionIsNotAssociated = (
+  distributionConfig: CloudFront.DistributionConfig,
+) => {
+  const configWithoutFunctions = {
+    ...distributionConfig,
+    DefaultRootObject: DEFAULT_ROOT_OBJECT,
   }
+  delete configWithoutFunctions.DefaultCacheBehavior.FunctionAssociations
+  return configWithoutFunctions
 }
 
-const updateDistributionConfigPublicAccess = (
-  domainName: string,
-  originAccessControlId: string | undefined,
-  distributionConfig: CloudFront.DistributionConfig,
-  shouldBlockBucketPublicAccess: boolean
-): CloudFront.DistributionConfig => {
-  if (
-    isRightOriginAlreadyAssociated(
-      shouldBlockBucketPublicAccess,
-      domainName,
-      distributionConfig
-    )
-  ) {
+const makeBucketPrivate = (domainName: string,distributionConfig: CloudFront.DistributionConfig, originAccessControlId: string) => {
+  const isOACAlreadyAssociated = distributionConfig?.Origins.Items.find(
+    o => o.DomainName === getS3DomainNameForBlockedBucket(domainName)
+  )
+
+
+  if (isOACAlreadyAssociated) {
     return distributionConfig
   }
 
-  if (shouldBlockBucketPublicAccess && originAccessControlId) {
-    return {
-      ...distributionConfig,
-      Origins: {
-        ...distributionConfig.Origins,
-        Quantity: 1,
-        Items: [
-          {
-            Id: getS3DomainNameForBlockedBucket(domainName),
-            DomainName: getS3DomainNameForBlockedBucket(domainName),
-            OriginAccessControlId: originAccessControlId,
-            S3OriginConfig: {
-              OriginAccessIdentity: '', // If you're using origin access control (OAC) instead of origin access identity, specify an empty OriginAccessIdentity element
-            },
-            OriginPath: '',
-            CustomHeaders: {
-              Quantity: 0,
-              Items: [],
-            },
+  return {
+    ...distributionConfig,
+    Origins: {
+      ...distributionConfig.Origins,
+      Quantity: 1,
+      Items: [
+        {
+          Id: getS3DomainNameForBlockedBucket(domainName),
+          DomainName: getS3DomainNameForBlockedBucket(domainName),
+          OriginAccessControlId: originAccessControlId,
+          S3OriginConfig: {
+            OriginAccessIdentity: '', // If you're using origin access control (OAC) instead of origin access identity, specify an empty OriginAccessIdentity element
           },
-        ],
-      },
-      DefaultCacheBehavior: {
-        ...distributionConfig.DefaultCacheBehavior,
-        TargetOriginId: getS3DomainNameForBlockedBucket(domainName),
-      },
-    }
+          OriginPath: '',
+          CustomHeaders: {
+            Quantity: 0,
+            Items: [],
+          },
+        },
+      ],
+    },
+    DefaultCacheBehavior: {
+      ...distributionConfig.DefaultCacheBehavior,
+      TargetOriginId: getS3DomainNameForBlockedBucket(domainName),
+    },
   }
+}
+const makeBucketPublic = (distributionConfig: CloudFront.DistributionConfig,
+  domainName: string,
+) => {
+  const isS3WebsiteAlreadyAssociated = distributionConfig?.Origins.Items.find(
+    o => o.DomainName === getS3DomainName(domainName)
+  )
+
+  if (isS3WebsiteAlreadyAssociated) {
+    return distributionConfig
+  }
+
   return {
     ...distributionConfig,
     Origins: {
