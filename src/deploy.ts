@@ -92,7 +92,6 @@ export const deploy = async (
     distribution = await createCloudFrontDistribution(
       domainName,
       certificateArn,
-      noDefaultRootObject
     )
   }
 

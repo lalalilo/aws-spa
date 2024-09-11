@@ -226,7 +226,6 @@ describe('cloudfront', () => {
       const result = await createCloudFrontDistribution(
         'hello.lalilo.com',
         'arn:certificate',
-        false
       )
       expect(result).toBe(distribution)
       expect(tagResourceMock).toHaveBeenCalledTimes(1)
@@ -428,7 +427,7 @@ describe('cloudfront', () => {
               Quantity: 1,
               Items: [{
                 FunctionARN: 'plop',
-                EventType: 'origin-request',
+                EventType: 'viewer-request',
               }]
             }})
           },

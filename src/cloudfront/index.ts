@@ -1,3 +1,4 @@
+
 import { AWSError } from 'aws-sdk'
 import CloudFront, {
   DistributionConfig,
@@ -15,13 +16,9 @@ import {
 } from '../aws-services'
 import { lambdaPrefix } from '../lambda'
 import { logger } from '../logger'
+import { DEFAULT_ROOT_OBJECT, NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR, NO_DEFAULT_ROOT_OBJECT_REDIRECTION_FUNCTION_NAME } from './constants'
+import { noDefaultRootObjectFunctions } from './noDefaultRootObjectFunction'
 import { OAC } from './origin-access'
-
-const DEFAULT_ROOT_OBJECT = 'index.html'
-
-const NO_DEFAULT_ROOT_OBJECT_REDIRECTION_FUNCTION_NAME =
-  'noDefaultRouteObjectRedirection'
-const NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR = 'yellow'
 
 export interface DistributionIdentificationDetail {
   Id: string
@@ -115,7 +112,6 @@ export const tagCloudFrontDistribution = async (
 export const createCloudFrontDistribution = async (
   domainName: string,
   sslCertificateARN: string,
-  noDefaultRootObject: boolean
 ): Promise<DistributionIdentificationDetail> => {
   logger.info(
     `[CloudFront] ✏️ Creating Cloudfront distribution with origin "${getS3DomainName(
@@ -123,20 +119,11 @@ export const createCloudFrontDistribution = async (
     )}"...`
   )
 
-  let noDefaultRootObjectFunctionARN: string | undefined
-
-  if (noDefaultRootObject) {
-    const functionARN =
-      await createAndPublishNoDefaultRootObjectRedirectionFunction()
-    noDefaultRootObjectFunctionARN = functionARN
-  }
-
   const { Distribution } = await cloudfront
     .createDistribution({
       DistributionConfig: getBaseDistributionConfig(
         domainName,
         sslCertificateARN,
-        noDefaultRootObjectFunctionARN
       ),
     })
     .promise()
@@ -180,7 +167,7 @@ const createAndPublishNoDefaultRootObjectRedirectionFunction = async () => {
 
     if (!createdFunctionARN) {
       throw new Error(
-        `[CloudFront] Could not create lambda function to handle redirection for no default root object`
+        `[CloudFront] Could not create lambda function to handle redirection when no default root object`
       )
     }
 
@@ -196,9 +183,7 @@ const isCloudFrontFunctionExisting = async (name: string) => {
       if (err) {
         logger.error(`[CloudFront] Error listing lambda functions: ${err}`)
       }
-      existingFunctionARN = data.FunctionList?.Items?.find(item => {
-        item.Name === name
-      })?.FunctionMetadata.FunctionARN
+      existingFunctionARN = data.FunctionList?.Items?.find(item => item.Name === name)?.FunctionMetadata.FunctionARN
     })
     .promise()
   return existingFunctionARN
@@ -206,7 +191,7 @@ const isCloudFrontFunctionExisting = async (name: string) => {
 
 const createNoDefaultRootObjectFunction = async (functionName: string) => {
   logger.info(
-    `[CloudFront] ✏️ Creating lambda function to handle redirection for no default root object...`
+    `[CloudFront] ✏️ Creating lambda function to handle redirection when no default root object...`
   )
   let createdFunctionETag: string | undefined
   let createdFunctionARN: string | undefined
@@ -214,9 +199,9 @@ const createNoDefaultRootObjectFunction = async (functionName: string) => {
     .createFunction(
       {
         Name: functionName,
-        FunctionCode: `noDefaultRootObjectFunction_${NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR}.js`,
+        FunctionCode: noDefaultRootObjectFunctions[NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR],
         FunctionConfig: {
-          Runtime: 'cloudfront-js-1.0',
+          Runtime: 'cloudfront-js-2.0',
           Comment:
             'Redirects to branch specific index.html when no default root object is set',
         },
@@ -235,7 +220,7 @@ const createNoDefaultRootObjectFunction = async (functionName: string) => {
 
 const publishCloudFrontFunction = async (name: string, etag: string) => {
   logger.info(
-    `[CloudFront] ✏️ Publish lambda function to handle redirection for no default root object...`
+    `[CloudFront] ✏️ Publish lambda function to handle redirection when no default root object...`
   )
   await cloudfront
     .publishFunction(
@@ -255,7 +240,6 @@ const publishCloudFrontFunction = async (name: string, etag: string) => {
 const getBaseDistributionConfig = (
   domainName: string,
   sslCertificateARN: string,
-  noDefaultRootObjectFunctionARN: string | undefined
 ): DistributionConfig => ({
   CallerReference: Date.now().toString(),
   Aliases: {
@@ -308,23 +292,10 @@ const getBaseDistributionConfig = (
       Quantity: 0,
     },
   },
-  DefaultRootObject:
-    noDefaultRootObjectFunctionARN === undefined ? DEFAULT_ROOT_OBJECT : '',
+  DefaultRootObject: DEFAULT_ROOT_OBJECT,
   WebACLId: '',
   HttpVersion: 'http2',
   DefaultCacheBehavior: {
-    FunctionAssociations:
-      noDefaultRootObjectFunctionARN !== undefined
-        ? {
-            Quantity: 1,
-            Items: [
-              {
-                FunctionARN: noDefaultRootObjectFunctionARN,
-                EventType: 'origin-request',
-              },
-            ],
-          }
-        : undefined,
     ViewerProtocolPolicy: 'redirect-to-https',
     TargetOriginId: getOriginId(domainName),
     ForwardedValues: {
@@ -617,7 +588,7 @@ const addFunctionToDistribution = (
       Quantity: 1,
       Items: [{
         FunctionARN: functionARN,
-        EventType: 'origin-request',
+        EventType: 'viewer-request',
       }],
     },
   },
