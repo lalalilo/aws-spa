@@ -167,7 +167,7 @@ const createAndPublishNoDefaultRootObjectRedirectionFunction = async () => {
 
     if (!createdFunctionARN) {
       throw new Error(
-        `[CloudFront] Could not create lambda function to handle redirection when no default root object`
+        `[CloudFront] Could not create function to handle redirection when no default root object`
       )
     }
 
@@ -181,7 +181,7 @@ const isCloudFrontFunctionExisting = async (name: string) => {
   await cloudfront
     .listFunctions((err, data) => {
       if (err) {
-        logger.error(`[CloudFront] Error listing lambda functions: ${err}`)
+        logger.error(`[CloudFront] Error listing functions: ${err}`)
       }
       existingFunctionARN = data.FunctionList?.Items?.find(item => item.Name === name)?.FunctionMetadata.FunctionARN
     })
@@ -191,7 +191,7 @@ const isCloudFrontFunctionExisting = async (name: string) => {
 
 const createNoDefaultRootObjectFunction = async (functionName: string) => {
   logger.info(
-    `[CloudFront] ✏️ Creating lambda function to handle redirection when no default root object...`
+    `[CloudFront] ✏️ Creating function to handle redirection when no default root object...`
   )
   let createdFunctionETag: string | undefined
   let createdFunctionARN: string | undefined
@@ -208,7 +208,7 @@ const createNoDefaultRootObjectFunction = async (functionName: string) => {
       },
       (err) => {
         if (err) {
-          logger.error(`[CloudFront] Error creating lambda function: ${err}`)
+          logger.error(`[CloudFront] Error creating function: ${err}`)
         }
       }
     )
@@ -220,7 +220,7 @@ const createNoDefaultRootObjectFunction = async (functionName: string) => {
 
 const publishCloudFrontFunction = async (name: string, etag: string) => {
   logger.info(
-    `[CloudFront] ✏️ Publish lambda function to handle redirection when no default root object...`
+    `[CloudFront] ✏️ Publish function to handle redirection when no default root object...`
   )
   await cloudfront
     .publishFunction(
@@ -230,7 +230,7 @@ const publishCloudFrontFunction = async (name: string, etag: string) => {
       },
       err => {
         if (err) {
-          throw new Error(`[CloudFront] Error publishing lambda function: ${err}`)
+          throw new Error(`[CloudFront] Error publishing function: ${err}`)
         }
       }
     )
@@ -429,7 +429,7 @@ export const setSimpleAuthBehavior = async (
 
     if (updatedLambdaFunctions.length !== lambdaConfigs.length) {
       logger.info(
-        `[CloudFront] 🗑 Removing lambda function association handling basic auth...`
+        `[CloudFront] 🗑 Removing function association handling basic auth...`
       )
 
       await updateLambdaFunctionAssociations(
@@ -438,7 +438,7 @@ export const setSimpleAuthBehavior = async (
         updatedLambdaFunctions,
         ETag!
       )
-      logger.info(`[CloudFront] 👍 Lambda function association removed`)
+      logger.info(`[CloudFront] 👍 Function association removed`)
     } else {
       logger.info(`[CloudFront] 👍 No basic auth setup`)
     }
@@ -610,7 +610,6 @@ const makeBucketPrivate = (domainName: string,distributionConfig: CloudFront.Dis
     o => o.DomainName === getS3DomainNameForBlockedBucket(domainName)
   )
 
-
   if (isOACAlreadyAssociated) {
     return distributionConfig
   }
@@ -642,6 +641,7 @@ const makeBucketPrivate = (domainName: string,distributionConfig: CloudFront.Dis
     },
   }
 }
+
 const makeBucketPublic = (distributionConfig: CloudFront.DistributionConfig,
   domainName: string,
 ) => {
