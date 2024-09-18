@@ -150,30 +150,35 @@ const createAndPublishNoDefaultRootObjectRedirectionFunction = async () => {
     '_' +
     NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR
 
-    let functionARN = await isCloudFrontFunctionExisting(
+    const currentFunctionARN = await isCloudFrontFunctionExisting(
       cloudFrontRedirectionFunctionName
     )
 
-  if (!functionARN) {
+  if (!currentFunctionARN) {
     const { createdFunctionETag, createdFunctionARN } =
       await createNoDefaultRootObjectFunction(cloudFrontRedirectionFunctionName)
 
-    if (createdFunctionETag) {
-      await publishCloudFrontFunction(
-        cloudFrontRedirectionFunctionName,
-        createdFunctionETag
-      )
-    }
-
-    if (!createdFunctionARN) {
+    if (!createdFunctionARN ) {
       throw new Error(
-        `[CloudFront] Could not create function to handle redirection when no default root object`
+        `[CloudFront] Could not create function to handle redirection when no default root object. No ARN returned.`
       )
     }
 
-    functionARN = createdFunctionARN
+    if (!createdFunctionETag) {
+      throw new Error(
+        `[CloudFront] Could not create function to handle redirection when no default root object. No Etag returned.`
+      )
+    }
+  
+    await publishCloudFrontFunction(
+      cloudFrontRedirectionFunctionName,
+      createdFunctionETag
+    )
+
+    return createdFunctionARN
   }
-  return functionARN
+
+  return currentFunctionARN
 }
 
 const isCloudFrontFunctionExisting = async (name: string) => {
