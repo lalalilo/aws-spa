@@ -41,11 +41,6 @@ yargs
           type: 'string',
           describe: 'A folder where files use cache busting strategy.',
         })
-        .option('credentials', {
-          type: 'string',
-          describe:
-            'This option enables basic auth for the full s3 bucket (even if the domainName specifies a path). Credentials must be of the form "username:password". Basic auth is the recommended way to avoid search engine indexation of non-production apps (such as staging)',
-        })
         .option('noPrompt', {
           type: 'boolean',
           default: false,
@@ -78,7 +73,6 @@ yargs
           argv.wait,
           argv.cacheInvalidation,
           argv.cacheBustedPrefix,
-          argv.credentials || process.env.AWS_SPA_CREDENTIALS,
           argv.noPrompt,
           argv.shouldBlockBucketPublicAccess,
           argv.noDefaultRootObject
