@@ -86,8 +86,12 @@ export const findDeployedCloudfrontDistribution = async (
     )
     await cloudfront
       .waitFor('distributionDeployed', { Id: distribution.Id })
-      .promise()
+      .promise().then(() => {
+        logger.info(`[CloudFront] ✅ Distribution deployed: ${distribution.Id}`)
+      })
   }
+
+  logger.info(`[CloudFront] ✅ Using distribution: ${distribution.Id}`)
   return distribution
 }
 

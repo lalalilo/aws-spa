@@ -62,15 +62,24 @@ export const upsertOriginAccessControl = async (
   domainName: string,
   distributionId: string
 ) => {
+  logger.info(
+    `[Cloudfront] ✨ Upserting Origin Access Control for "${domainName}"...`
+  )
   const originAccessControlName = getOriginAccessControlName(
     domainName,
     distributionId
   )
   const existingOAC = await getExistingOAC(originAccessControlName)
   if (existingOAC !== null) {
+    logger.info(
+      `[Cloudfront] ✅ Origin Access Control "${originAccessControlName}" already exists.`
+    )
     return existingOAC
   }
 
+  logger.info(
+    `[Cloudfront] ✏️ Creating an Origin Access Control for "${domainName}"...`
+  )
   return await createOAC(originAccessControlName, domainName, distributionId)
 }
 
