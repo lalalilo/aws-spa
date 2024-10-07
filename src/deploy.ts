@@ -6,14 +6,12 @@ import {
   findDeployedCloudfrontDistribution,
   getCacheInvalidations,
   invalidateCloudfrontCacheWithRetry,
-  setSimpleAuthBehavior,
-  updateCloudFrontDistribution,
+  updateCloudFrontDistribution
 } from './cloudfront'
 import {
   cleanExistingOriginAccessControl,
   upsertOriginAccessControl,
 } from './cloudfront/origin-access'
-import { deploySimpleAuthLambda } from './lambda'
 import { logger } from './logger'
 import { predeployPrompt } from './prompt'
 import {
@@ -43,7 +41,6 @@ export const deploy = async (
   wait: boolean,
   cacheInvalidations: string,
   cacheBustedPrefix: string | undefined,
-  credentials: string | undefined,
   noPrompt: boolean,
   shouldBlockBucketPublicAccess: boolean,
   noDefaultRootObject: boolean
@@ -92,7 +89,6 @@ export const deploy = async (
     distribution = await createCloudFrontDistribution(
       domainName,
       certificateArn,
-      noDefaultRootObject
     )
   }
 
@@ -116,16 +112,6 @@ export const deploy = async (
     await allowBucketPublicAccess(domainName)
     await setBucketPolicy(domainName)
     await cleanExistingOriginAccessControl(domainName, distribution.Id)
-  }
-
-  if (credentials) {
-    const simpleAuthLambdaARN = await deploySimpleAuthLambda(
-      domainName,
-      credentials
-    )
-    await setSimpleAuthBehavior(distribution.Id, simpleAuthLambdaARN)
-  } else {
-    await setSimpleAuthBehavior(distribution.Id, null)
   }
 
   if (
