@@ -10,8 +10,13 @@ export const noDefaultRootObjectFunctions = {
         return request
       }
 
+      const splitURI = uri.split('/')
+      const isNotAnAsset = !splitURI[splitURI.length - 1].includes('.')
+      const isOnlyBranchName = splitURI.length === 1
+      const hasNoSlashAtTheEnd = !uri.endsWith('/')
+      
       // make sure there is a slash before the hash router's "#/" to avoid "url.com/branch#/path" case
-      if (!uri.endsWith('/')) {
+      if (isOnlyBranchName && hasNoSlashAtTheEnd && isNotAnAsset) {
         return {
           statusCode: 302,
           statusDescription: 'Found',
@@ -22,8 +27,11 @@ export const noDefaultRootObjectFunctions = {
           },
         }
       }
-
-      request.uri += 'index.html'
+      
+      // add index.html if the URI is not an asset
+      if (isNotAnAsset) {
+        request.uri += 'index.html'
+      }
 
       return request
     }
