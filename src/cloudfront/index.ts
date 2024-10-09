@@ -525,13 +525,23 @@ const ensureFunctionIsNotAssociated = (
 }
 
 const makeBucketPrivate = (domainName: string,distributionConfig: CloudFront.DistributionConfig, originAccessControlId: string) => {
+
+  const privateBucketDomainName = getS3DomainNameForBlockedBucket(domainName)
+
   const isOACAlreadyAssociated = distributionConfig?.Origins.Items.find(
-    o => o.DomainName === getS3DomainNameForBlockedBucket(domainName)
+    o => o.DomainName === privateBucketDomainName
   )
 
   if (isOACAlreadyAssociated) {
+    logger.info(
+      `[Cloudfront] 👍 OAC already associated with S3 domain "${privateBucketDomainName}"...`
+    )
     return distributionConfig
   }
+
+  logger.info(
+    `[Cloudfront] ✏️ Generating new OAC association config for S3 domain "${privateBucketDomainName}"...`
+  )
 
   return {
     ...distributionConfig,
@@ -540,8 +550,8 @@ const makeBucketPrivate = (domainName: string,distributionConfig: CloudFront.Dis
       Quantity: 1,
       Items: [
         {
-          Id: getS3DomainNameForBlockedBucket(domainName),
-          DomainName: getS3DomainNameForBlockedBucket(domainName),
+          Id: privateBucketDomainName,
+          DomainName: privateBucketDomainName,
           OriginAccessControlId: originAccessControlId,
           S3OriginConfig: {
             OriginAccessIdentity: '', // If you're using origin access control (OAC) instead of origin access identity, specify an empty OriginAccessIdentity element
@@ -556,7 +566,7 @@ const makeBucketPrivate = (domainName: string,distributionConfig: CloudFront.Dis
     },
     DefaultCacheBehavior: {
       ...distributionConfig.DefaultCacheBehavior,
-      TargetOriginId: getS3DomainNameForBlockedBucket(domainName),
+      TargetOriginId: privateBucketDomainName,
     },
   }
 }
@@ -569,8 +579,15 @@ const makeBucketPublic = (distributionConfig: CloudFront.DistributionConfig,
   )
 
   if (isS3WebsiteAlreadyAssociated) {
+    logger.info(
+      `[Cloudfront] 👍 S3 website already associated with distribution...`
+    )
     return distributionConfig
   }
+
+  logger.info(
+    `[Cloudfront] ✏️ Generating new S3 website association config for "${domainName}"...`
+  )
 
   return {
     ...distributionConfig,

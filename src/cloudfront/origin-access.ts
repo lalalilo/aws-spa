@@ -77,9 +77,6 @@ export const upsertOriginAccessControl = async (
     return existingOAC
   }
 
-  logger.info(
-    `[Cloudfront] ✏️ Creating an Origin Access Control for "${domainName}"...`
-  )
   return await createOAC(originAccessControlName, domainName, distributionId)
 }
 
@@ -96,6 +93,9 @@ export const cleanExistingOriginAccessControl = async (
     return
   }
 
+  logger.info(
+    `[Cloudfront] 🧹 Deleting Origin Access Control "${originAccessControlName}"...`
+  )
   await cloudfront
     .deleteOriginAccessControl({
       Id: existingOAC.originAccessControl.Id,
