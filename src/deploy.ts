@@ -94,24 +94,24 @@ export const deploy = async (
 
   if (shouldBlockBucketPublicAccess) {
     const oac = await upsertOriginAccessControl(domainName, distribution.Id)
+    await removeBucketWebsite(domainName)
+    await blockBucketPublicAccess(domainName)
+    await setBucketPolicyForOAC(domainName, distribution.Id)
     await updateCloudFrontDistribution(distribution.Id, domainName, {
       shouldBlockBucketPublicAccess: true,
       noDefaultRootObject,
       oac,
     })
-    await removeBucketWebsite(domainName)
-    await blockBucketPublicAccess(domainName)
-    await setBucketPolicyForOAC(domainName, distribution.Id)
   } else {
+    await setBucketWebsite(domainName)
+    await allowBucketPublicAccess(domainName)
+    await setBucketPolicy(domainName)
+    await cleanExistingOriginAccessControl(domainName, distribution.Id)
     await updateCloudFrontDistribution(distribution.Id, domainName, {
       shouldBlockBucketPublicAccess: false,
       noDefaultRootObject,
       oac: null,
     })
-    await setBucketWebsite(domainName)
-    await allowBucketPublicAccess(domainName)
-    await setBucketPolicy(domainName)
-    await cleanExistingOriginAccessControl(domainName, distribution.Id)
   }
 
   if (
