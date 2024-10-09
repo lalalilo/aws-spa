@@ -525,8 +525,11 @@ const ensureFunctionIsNotAssociated = (
 }
 
 const makeBucketPrivate = (domainName: string,distributionConfig: CloudFront.DistributionConfig, originAccessControlId: string) => {
+
+  const privateBucketDomainName = getS3DomainNameForBlockedBucket(domainName)
+
   const isOACAlreadyAssociated = distributionConfig?.Origins.Items.find(
-    o => o.DomainName === getS3DomainNameForBlockedBucket(domainName)
+    o => o.DomainName === privateBucketDomainName
   )
 
   if (isOACAlreadyAssociated) {
@@ -540,8 +543,8 @@ const makeBucketPrivate = (domainName: string,distributionConfig: CloudFront.Dis
       Quantity: 1,
       Items: [
         {
-          Id: getS3DomainNameForBlockedBucket(domainName),
-          DomainName: getS3DomainNameForBlockedBucket(domainName),
+          Id: privateBucketDomainName,
+          DomainName: privateBucketDomainName,
           OriginAccessControlId: originAccessControlId,
           S3OriginConfig: {
             OriginAccessIdentity: '', // If you're using origin access control (OAC) instead of origin access identity, specify an empty OriginAccessIdentity element
@@ -556,7 +559,7 @@ const makeBucketPrivate = (domainName: string,distributionConfig: CloudFront.Dis
     },
     DefaultCacheBehavior: {
       ...distributionConfig.DefaultCacheBehavior,
-      TargetOriginId: getS3DomainNameForBlockedBucket(domainName),
+      TargetOriginId: privateBucketDomainName,
     },
   }
 }

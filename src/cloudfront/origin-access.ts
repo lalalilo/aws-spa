@@ -77,9 +77,6 @@ export const upsertOriginAccessControl = async (
     return existingOAC
   }
 
-  logger.info(
-    `[Cloudfront] ✏️ Creating an Origin Access Control for "${domainName}"...`
-  )
   return await createOAC(originAccessControlName, domainName, distributionId)
 }
 
