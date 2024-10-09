@@ -93,6 +93,9 @@ export const cleanExistingOriginAccessControl = async (
     return
   }
 
+  logger.info(
+    `[Cloudfront] 🧹 Deleting Origin Access Control "${originAccessControlName}"...`
+  )
   await cloudfront
     .deleteOriginAccessControl({
       Id: existingOAC.originAccessControl.Id,

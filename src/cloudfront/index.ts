@@ -533,8 +533,15 @@ const makeBucketPrivate = (domainName: string,distributionConfig: CloudFront.Dis
   )
 
   if (isOACAlreadyAssociated) {
+    logger.info(
+      `[Cloudfront] 👍 OAC already associated with S3 domain "${privateBucketDomainName}"...`
+    )
     return distributionConfig
   }
+
+  logger.info(
+    `[Cloudfront] ✏️ Generating new OAC association config for S3 domain "${privateBucketDomainName}"...`
+  )
 
   return {
     ...distributionConfig,
@@ -572,8 +579,15 @@ const makeBucketPublic = (distributionConfig: CloudFront.DistributionConfig,
   )
 
   if (isS3WebsiteAlreadyAssociated) {
+    logger.info(
+      `[Cloudfront] 👍 S3 website already associated with distribution...`
+    )
     return distributionConfig
   }
+
+  logger.info(
+    `[Cloudfront] ✏️ Generating new S3 website association config for "${domainName}"...`
+  )
 
   return {
     ...distributionConfig,
