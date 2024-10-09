@@ -52,8 +52,14 @@
     ]
   },
   "dependencies": {
+    "@aws-sdk/client-acm": "^3.667.0",
+    "@aws-sdk/client-cloudfront": "^3.667.0",
+    "@aws-sdk/client-iam": "^3.667.0",
+    "@aws-sdk/client-lambda": "^3.667.0",
+    "@aws-sdk/client-route-53": "^3.667.0",
+    "@aws-sdk/client-s3": "^3.667.0",
+    "@aws-sdk/smithy-client": "^3.374.0",
     "adm-zip": "^0.5.9",
-    "aws-sdk": "^2.1691.0",
     "inquirer": "^8.2.3",
     "mime-types": "^2.1.35",
     "yargs": "^17.5.1"
