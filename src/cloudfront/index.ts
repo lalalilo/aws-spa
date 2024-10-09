@@ -1,4 +1,4 @@
-import { DistributionConfig, DistributionSummary, GetInvalidationCommandOutput, Tag } from '@aws-sdk/client-cloudfront'
+import { Distribution, DistributionConfig, DistributionSummary, GetInvalidationCommandOutput, Tag, waitUntilDistributionDeployed, waitUntilInvalidationCompleted } from '@aws-sdk/client-cloudfront'
 import { ServiceException } from '@aws-sdk/smithy-client'
 import { getAll } from '../aws-helper'
 import {
@@ -75,9 +75,11 @@ export const findDeployedCloudfrontDistribution = async (
     logger.info(
       `[CloudFront] ⏱ Waiting for distribution to be deployed. This step might takes up to 25 minutes...`
     )
-    await cloudfront.waitFor('distributionDeployed', { Id: distribution.Id }).then(() => {
-        logger.info(`[CloudFront] ✅ Distribution deployed: ${distribution.Id}`)
-      })
+    await waitUntilDistributionDeployed({
+      client: cloudfront,
+      maxWaitTime: 1500,
+    }, { Id: distribution.Id })
+    logger.info(`[CloudFront] ✅ Distribution deployed: ${distribution.Id}`)
   }
 
   logger.info(`[CloudFront] ✅ Using distribution: ${distribution.Id}`)
@@ -101,7 +103,7 @@ export const tagCloudFrontDistribution = async (
 export const createCloudFrontDistribution = async (
   domainName: string,
   sslCertificateARN: string,
-): Promise<DistributionIdentificationDetail> => {
+): Promise<Distribution> => {
   logger.info(
     `[CloudFront] ✏️ Creating Cloudfront distribution with origin "${getS3DomainName(
       domainName
@@ -124,7 +126,12 @@ export const createCloudFrontDistribution = async (
   logger.info(
     `[CloudFront] ⏱ Waiting for distribution to be available. This step might takes up to 25 minutes...`
   )
-  await cloudfront.waitFor('distributionDeployed', { Id: Distribution.Id })
+
+  await waitUntilDistributionDeployed({
+    client: cloudfront,
+    maxWaitTime: 1500,
+  }, { Id: Distribution.Id })
+  logger.info(`[CloudFront] ✅ Distribution deployed: ${Distribution.Id}`)
 
   return Distribution
 }
@@ -356,10 +363,12 @@ export const invalidateCloudfrontCache = async (
     logger.info(
       '[CloudFront] ⏱ Waiting for invalidation to be completed (can take up to 10 minutes)...'
     )
-    await cloudfront.waitFor('invalidationCompleted', {
-        DistributionId: distributionId,
-        Id: Invalidation.Id,
-      })
+
+    await waitUntilInvalidationCompleted({
+      client: cloudfront,
+      maxWaitTime: 600,
+    }, { DistributionId: distributionId, Id: Invalidation.Id })
+    logger.info('[CloudFront] ✅ Invalidation completed')
   }
 }
 
@@ -369,8 +378,8 @@ export const invalidateCloudfrontCacheWithRetry = async (
   wait: boolean = false,
   count: number = 0
 ): Promise<PromiseResult<
-  CloudFront.GetInvalidationResult,
-  AWSError
+  GetInvalidationCommandOutput,
+  ServiceException
 > | void> => {
   try {
     return await invalidateCloudfrontCache(distributionId, paths, wait)
@@ -420,7 +429,7 @@ export const updateCloudFrontDistribution = async (
   const { shouldBlockBucketPublicAccess, oac, noDefaultRootObject } = options
   try {
     let functionARN: string | undefined
-    let updatedDistributionConfig: CloudFront.DistributionConfig
+    let updatedDistributionConfig: DistributionConfig
     
     const { DistributionConfig, ETag } = await cloudfront.getDistributionConfig({ Id: distributionId })
     
@@ -466,14 +475,14 @@ export const updateCloudFrontDistribution = async (
 }
 
 const isDistributionConfigModified = (
-  updatedDistributionConfig: CloudFront.DistributionConfig,
-  distributionConfig: CloudFront.DistributionConfig
+  updatedDistributionConfig: DistributionConfig,
+  distributionConfig: DistributionConfig
 ): boolean => JSON.stringify(updatedDistributionConfig) !== JSON.stringify(distributionConfig)
 
 const addFunctionToDistribution = (
-  distributionConfig: CloudFront.DistributionConfig,
+  distributionConfig: DistributionConfig,
   functionARN: string
-): CloudFront.DistributionConfig => ({
+): DistributionConfig => ({
   ...distributionConfig,
   DefaultRootObject: '',
   DefaultCacheBehavior: {...distributionConfig.DefaultCacheBehavior,
@@ -488,7 +497,7 @@ const addFunctionToDistribution = (
 })
 
 const ensureFunctionIsNotAssociated = (
-  distributionConfig: CloudFront.DistributionConfig,
+  distributionConfig: DistributionConfig,
 ) => {
   const configWithoutFunctions = {
     ...distributionConfig,
@@ -498,7 +507,7 @@ const ensureFunctionIsNotAssociated = (
   return configWithoutFunctions
 }
 
-const makeBucketPrivate = (domainName: string,distributionConfig: CloudFront.DistributionConfig, originAccessControlId: string) => {
+const makeBucketPrivate = (domainName: string, distributionConfig: DistributionConfig, originAccessControlId: string) => {
 
   const privateBucketDomainName = getS3DomainNameForBlockedBucket(domainName)
 
@@ -545,7 +554,7 @@ const makeBucketPrivate = (domainName: string,distributionConfig: CloudFront.Dis
   }
 }
 
-const makeBucketPublic = (distributionConfig: CloudFront.DistributionConfig,
+const makeBucketPublic = (distributionConfig: DistributionConfig,
   domainName: string,
 ) => {
   const isS3WebsiteAlreadyAssociated = distributionConfig?.Origins.Items.find(

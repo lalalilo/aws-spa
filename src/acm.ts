@@ -1,11 +1,11 @@
-import { CertificateSummary, ResourceRecord } from '@aws-sdk/client-acm'
+import { CertificateSummary, ResourceRecord, waitUntilCertificateValidated } from '@aws-sdk/client-acm'
 import { getAll } from './aws-helper'
 import { acm } from './aws-services'
 import { logger } from './logger'
 import { createCertificateValidationDNSRecord } from './route53'
 
 export const getCertificateARN = async (domainName: string) => {
-  let waitFor: null | string = null
+  let pendingCertificateARN: null | string = null
 
   const certificates = await getAll<CertificateSummary>(
     async (nextMarker, page) => {
@@ -40,7 +40,7 @@ export const getCertificateARN = async (domainName: string) => {
         )
 
         if (Certificate.Status === 'PENDING_VALIDATION') {
-          waitFor = Certificate.CertificateArn || null
+          pendingCertificateARN = Certificate.CertificateArn || null
         }
         continue
       }
@@ -65,7 +65,7 @@ export const getCertificateARN = async (domainName: string) => {
             }") is matching but its status is "${Certificate.Status}"`
           )
           if (Certificate.Status === 'PENDING_VALIDATION') {
-            waitFor = Certificate.CertificateArn || null
+            pendingCertificateARN = Certificate.CertificateArn || null
           }
           continue
         }
@@ -79,15 +79,23 @@ export const getCertificateARN = async (domainName: string) => {
     }
   }
 
-  if (!waitFor) {
+  if (!pendingCertificateARN) {
     return null
   }
 
   logger.info(
     `[ACM] ⏱ Waiting for certificate validation: the domain owner of "${domainName}" should have received an email...`
   )
-  await acm.waitFor('certificateValidated', { CertificateArn: waitFor })
-  return waitFor
+
+  await waitUntilCertificateValidated({
+    client: acm,
+    maxWaitTime: 600,
+  }, { CertificateArn: pendingCertificateARN })
+
+  logger.info(
+    `[ACM] ✅ Certificate with domain name "${domainName}" is now validated`
+  )
+  return pendingCertificateARN
 }
 
 export const createCertificate = async (
@@ -140,10 +148,16 @@ const handleDNSValidation = async (
   logger.info(
     `[ACM] ⏱ Request sent. Waiting for certificate validation by DNS`
   )
-  await acm.waitFor('certificateValidated', {
-      CertificateArn: certificateARN,
-      $waiter: { delay: 10 },
-    })
+
+  await waitUntilCertificateValidated({
+    client: acm,
+    maxWaitTime: 600,
+    minDelay: 10,
+  }, { CertificateArn: certificateARN })
+
+  logger.info(
+    `[ACM] ✅ Certificate with domain name "${domainName}" is now validated`
+  )
 }
 
 export const domainNameMatch = (
