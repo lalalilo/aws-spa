@@ -12,9 +12,7 @@ export const findHostedZone = async (domainName: string) => {
 
   const hostedZones = await getAll<HostedZone>(async (nextMarker, page) => {
     logger.info(`[route53] 🔍 List hosted zones (page ${page})...`)
-    const { HostedZones, NextMarker } = await route53
-      .listHostedZones({ Marker: nextMarker })
-      .promise()
+    const { HostedZones, NextMarker } = await route53.listHostedZones({ Marker: nextMarker })
     return { items: HostedZones, nextMarker: NextMarker }
   })
 
@@ -46,12 +44,10 @@ export const findHostedZone = async (domainName: string) => {
 
 export const createHostedZone = async (domainName: string) => {
   logger.info(`[route53] ✏️ Creating hosted zone "${domainName}"...`)
-  const { HostedZone } = await route53
-    .createHostedZone({
+  const { HostedZone } = await route53.createHostedZone({
       Name: domainName,
       CallerReference: `aws-spa-${Date.now()}`,
     })
-    .promise()
 
   return HostedZone
 }
@@ -63,12 +59,10 @@ export const needsUpdateRecord = async (
 ) => {
   logger.info(`[route53] 🔍 Looking for a matching record...`)
 
-  const { ResourceRecordSets } = await route53
-    .listResourceRecordSets({
+  const { ResourceRecordSets } = await route53.listResourceRecordSets({
       HostedZoneId: hostedZoneId,
       StartRecordName: domainName,
     })
-    .promise()
 
   for (const record of ResourceRecordSets) {
     if (record.Name !== `${domainName}.`) {
@@ -139,8 +133,7 @@ export const updateRecord = async (
   logger.info(
     `[route53] ✏️ Upserting A: "${domainName}." → ${cloudfrontDomainName}...`
   )
-  await route53
-    .changeResourceRecordSets({
+  await route53.changeResourceRecordSets({
       HostedZoneId: hostedZoneId,
       ChangeBatch: {
         Changes: [
@@ -159,7 +152,6 @@ export const updateRecord = async (
         ],
       },
     })
-    .promise()
 }
 
 export const createCertificateValidationDNSRecord = async (
@@ -169,8 +161,7 @@ export const createCertificateValidationDNSRecord = async (
   logger.info(
     `[Route53] Creating record ${record.Type}:${record.Name}=${record.Value} to validate SSL certificate`
   )
-  await route53
-    .changeResourceRecordSets({
+  await route53.changeResourceRecordSets({
       HostedZoneId: hostedZoneId,
       ChangeBatch: {
         Changes: [
@@ -186,5 +177,4 @@ export const createCertificateValidationDNSRecord = async (
         ],
       },
     })
-    .promise()
 }

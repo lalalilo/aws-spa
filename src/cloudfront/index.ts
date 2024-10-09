@@ -27,11 +27,9 @@ export const findDeployedCloudfrontDistribution = async (
         `[CloudFront] 🔍 Searching cloudfront distribution (page ${page})...`
       )
 
-      const { DistributionList } = await cloudfront
-        .listDistributions({
+      const { DistributionList } = await cloudfront.listDistributions({
           Marker: nextMarker,
         })
-        .promise()
 
       if (!DistributionList) {
         return { items: [], nextMarker: undefined }
@@ -56,9 +54,8 @@ export const findDeployedCloudfrontDistribution = async (
     return null
   }
 
-  const { Tags } = await cloudfront
-    .listTagsForResource({ Resource: distribution.ARN })
-    .promise()
+  const { Tags } = await cloudfront.listTagsForResource({ Resource: distribution.ARN })
+
   if (
     !Tags ||
     !Tags.Items ||
@@ -78,9 +75,7 @@ export const findDeployedCloudfrontDistribution = async (
     logger.info(
       `[CloudFront] ⏱ Waiting for distribution to be deployed. This step might takes up to 25 minutes...`
     )
-    await cloudfront
-      .waitFor('distributionDeployed', { Id: distribution.Id })
-      .promise().then(() => {
+    await cloudfront.waitFor('distributionDeployed', { Id: distribution.Id }).then(() => {
         logger.info(`[CloudFront] ✅ Distribution deployed: ${distribution.Id}`)
       })
   }
@@ -95,14 +90,12 @@ export const tagCloudFrontDistribution = async (
   logger.info(
     `[CloudFront] ✏️ Tagging "${distribution.Id}" bucket with "${identifyingTag.Key}:${identifyingTag.Value}"...`
   )
-  await cloudfront
-    .tagResource({
+  await cloudfront.tagResource({
       Resource: distribution.ARN,
       Tags: {
         Items: [identifyingTag],
       },
     })
-    .promise()
 }
 
 export const createCloudFrontDistribution = async (
@@ -115,14 +108,12 @@ export const createCloudFrontDistribution = async (
     )}"...`
   )
 
-  const { Distribution } = await cloudfront
-    .createDistribution({
+  const { Distribution } = await cloudfront.createDistribution({
       DistributionConfig: getBaseDistributionConfig(
         domainName,
         sslCertificateARN,
       ),
     })
-    .promise()
 
   if (!Distribution) {
     throw new Error('[CloudFront] Could not create distribution')
@@ -133,9 +124,7 @@ export const createCloudFrontDistribution = async (
   logger.info(
     `[CloudFront] ⏱ Waiting for distribution to be available. This step might takes up to 25 minutes...`
   )
-  await cloudfront
-    .waitFor('distributionDeployed', { Id: Distribution.Id })
-    .promise()
+  await cloudfront.waitFor('distributionDeployed', { Id: Distribution.Id })
 
   return Distribution
 }
@@ -186,7 +175,7 @@ const isCloudFrontFunctionExisting = async (name: string) => {
       }
       existingFunctionARN = data.FunctionList?.Items?.find(item => item.Name === name)?.FunctionMetadata.FunctionARN
     })
-    .promise()
+
   return existingFunctionARN
 }
 
@@ -213,7 +202,6 @@ const createNoDefaultRootObjectFunction = async (functionName: string) => {
         }
       }
     )
-    .promise()
     createdFunctionARN = data.FunctionSummary?.FunctionMetadata.FunctionARN
     createdFunctionETag = data.ETag
   return { createdFunctionETag, createdFunctionARN }
@@ -235,7 +223,6 @@ const publishCloudFrontFunction = async (name: string, etag: string) => {
         }
       }
     )
-    .promise()
 }
 
 const getBaseDistributionConfig = (
@@ -350,8 +337,7 @@ export const invalidateCloudfrontCache = async (
   wait: boolean = false
 ) => {
   logger.info('[CloudFront] ✏️ Creating invalidation...')
-  const { Invalidation } = await cloudfront
-    .createInvalidation({
+  const { Invalidation } = await cloudfront.createInvalidation({
       DistributionId: distributionId,
       InvalidationBatch: {
         CallerReference: Date.now().toString(),
@@ -361,7 +347,6 @@ export const invalidateCloudfrontCache = async (
         },
       },
     })
-    .promise()
 
   if (!Invalidation) {
     return
@@ -371,12 +356,10 @@ export const invalidateCloudfrontCache = async (
     logger.info(
       '[CloudFront] ⏱ Waiting for invalidation to be completed (can take up to 10 minutes)...'
     )
-    await cloudfront
-      .waitFor('invalidationCompleted', {
+    await cloudfront.waitFor('invalidationCompleted', {
         DistributionId: distributionId,
         Id: Invalidation.Id,
       })
-      .promise()
   }
 }
 
@@ -439,9 +422,7 @@ export const updateCloudFrontDistribution = async (
     let functionARN: string | undefined
     let updatedDistributionConfig: CloudFront.DistributionConfig
     
-    const { DistributionConfig, ETag } = await cloudfront
-    .getDistributionConfig({ Id: distributionId })
-    .promise()
+    const { DistributionConfig, ETag } = await cloudfront.getDistributionConfig({ Id: distributionId })
     
     if (noDefaultRootObject) {
       functionARN =
@@ -479,7 +460,6 @@ export const updateCloudFrontDistribution = async (
         IfMatch: ETag,
         DistributionConfig: updatedDistributionConfig,
       })
-      .promise()
   } catch (error) {
     throw error
   }

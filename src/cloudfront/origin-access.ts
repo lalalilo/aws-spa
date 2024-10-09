@@ -10,9 +10,7 @@ export type OAC = {
 }
 
 export const getExistingOAC = async (originAccessControlName: String) => {
-  const { OriginAccessControlList } = await cloudfront
-    .listOriginAccessControls()
-    .promise()
+  const { OriginAccessControlList } = await cloudfront.listOriginAccessControls()
 
   const existingOACSummary = OriginAccessControlList?.Items?.find(
     oac => oac.Name === originAccessControlName
@@ -21,9 +19,7 @@ export const getExistingOAC = async (originAccessControlName: String) => {
   if (!existingOACSummary) {
     return null
   }
-  const oac = await cloudfront
-    .getOriginAccessControl({ Id: existingOACSummary.Id! })
-    .promise()
+  const oac = await cloudfront.getOriginAccessControl({ Id: existingOACSummary.Id! })
   return { originAccessControl: oac.OriginAccessControl!, ETag: oac.ETag! }
 }
 
@@ -36,8 +32,7 @@ export const createOAC = async (
     logger.info(
       `[Cloudfront] ✏️ Creating an Origin Access Control for "${domainName}"...`
     )
-    const oac = await cloudfront
-      .createOriginAccessControl({
+    const oac = await cloudfront.createOriginAccessControl({
         OriginAccessControlConfig: {
           Name: originAccessControlName,
           OriginAccessControlOriginType: 's3',
@@ -46,7 +41,6 @@ export const createOAC = async (
           Description: `OAC used by ${domainName} associated to distributionId: ${distributionId}`,
         },
       })
-      .promise()
     return { originAccessControl: oac.OriginAccessControl!, ETag: oac.ETag! }
   } catch (error) {
     throw error
@@ -96,11 +90,10 @@ export const cleanExistingOriginAccessControl = async (
   logger.info(
     `[Cloudfront] 🧹 Deleting Origin Access Control "${originAccessControlName}"...`
   )
-  await cloudfront
-    .deleteOriginAccessControl({
+
+  await cloudfront.deleteOriginAccessControl({
       Id: existingOAC.originAccessControl.Id,
       IfMatch: existingOAC.ETag,
     })
-    .promise()
   return
 }

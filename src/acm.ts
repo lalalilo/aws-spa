@@ -13,9 +13,7 @@ export const getCertificateARN = async (domainName: string) => {
         `[ACM] 🔍 Looking for a certificate matching "${domainName}" in zone "us-east-1" (page ${page})...`
       )
 
-      const { CertificateSummaryList, NextToken } = await acm
-        .listCertificates({ NextToken: nextMarker })
-        .promise()
+      const { CertificateSummaryList, NextToken } = await acm.listCertificates({ NextToken: nextMarker })
       return { items: CertificateSummaryList || [], nextMarker: NextToken }
     }
   )
@@ -25,11 +23,9 @@ export const getCertificateARN = async (domainName: string) => {
       continue
     }
 
-    const { Certificate } = await acm
-      .describeCertificate({
+    const { Certificate } = await acm.describeCertificate({
         CertificateArn: certificate.CertificateArn,
       })
-      .promise()
 
     if (!Certificate) {
       continue
@@ -90,9 +86,7 @@ export const getCertificateARN = async (domainName: string) => {
   logger.info(
     `[ACM] ⏱ Waiting for certificate validation: the domain owner of "${domainName}" should have received an email...`
   )
-  await acm
-    .waitFor('certificateValidated', { CertificateArn: waitFor })
-    .promise()
+  await acm.waitFor('certificateValidated', { CertificateArn: waitFor })
   return waitFor
 }
 
@@ -102,12 +96,10 @@ export const createCertificate = async (
   delay?: number
 ) => {
   logger.info(`[ACM] ✏️ Requesting a certificate for "${domainName}"...`)
-  const { CertificateArn } = await acm
-    .requestCertificate({
+  const { CertificateArn } = await acm.requestCertificate({
       DomainName: domainName,
       ValidationMethod: 'DNS',
     })
-    .promise()
 
   if (!CertificateArn) {
     throw new Error('No CertificateArn returned')
@@ -126,9 +118,7 @@ const handleDNSValidation = async (
   // https://github.com/aws/aws-sdk-js/issues/2133
   await new Promise(resolve => setTimeout(resolve, delay))
 
-  const { Certificate } = await acm
-    .describeCertificate({ CertificateArn: certificateARN })
-    .promise()
+  const { Certificate } = await acm.describeCertificate({ CertificateArn: certificateARN })
   if (!Certificate || !Certificate.DomainValidationOptions) {
     throw new Error('Could not access domain validation options')
   }
@@ -150,12 +140,10 @@ const handleDNSValidation = async (
   logger.info(
     `[ACM] ⏱ Request sent. Waiting for certificate validation by DNS`
   )
-  await acm
-    .waitFor('certificateValidated', {
+  await acm.waitFor('certificateValidated', {
       CertificateArn: certificateARN,
       $waiter: { delay: 10 },
     })
-    .promise()
 }
 
 export const domainNameMatch = (
