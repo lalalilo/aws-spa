@@ -46,6 +46,13 @@ export const confirmBucketManagement = async (bucketName: string) => {
   try {
     const { TagSet } = await s3.getBucketTagging({ Bucket: bucketName })
 
+    if (!TagSet) {
+      logger.info(
+        `[S3] ❌ Tag "${identifyingTag.Key}:${identifyingTag.Value}" not found`
+      )
+      return false
+    }
+
     const tag = TagSet.find(
       _tag =>
         _tag.Key === identifyingTag.Key && _tag.Value === identifyingTag.Value
@@ -57,6 +64,7 @@ export const confirmBucketManagement = async (bucketName: string) => {
       )
       return true
     }
+    return false
   } catch (error: any) {
     if (error.statusCode !== 404) {
       throw error
