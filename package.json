@@ -53,7 +53,7 @@
   },
   "dependencies": {
     "adm-zip": "^0.5.9",
-    "aws-sdk": "^2.1215.0",
+    "aws-sdk": "^2.1691.0",
     "inquirer": "^8.2.3",
     "mime-types": "^2.1.35",
     "yargs": "^17.5.1"
