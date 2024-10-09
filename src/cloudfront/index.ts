@@ -1,11 +1,5 @@
-
-import { AWSError } from 'aws-sdk'
-import CloudFront, {
-  DistributionConfig,
-  DistributionSummary,
-  Tag
-} from 'aws-sdk/clients/cloudfront'
-import { PromiseResult } from 'aws-sdk/lib/request'
+import { DistributionConfig, DistributionSummary, GetInvalidationCommandOutput, Tag } from '@aws-sdk/client-cloudfront'
+import { ServiceException } from '@aws-sdk/smithy-client'
 import { getAll } from '../aws-helper'
 import {
   cloudfront,

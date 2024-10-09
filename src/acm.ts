@@ -1,8 +1,7 @@
+import { CertificateSummary, ResourceRecord } from '@aws-sdk/client-acm'
 import { getAll } from './aws-helper'
-import { CertificateSummary, ResourceRecord } from 'aws-sdk/clients/acm'
 import { acm } from './aws-services'
 import { logger } from './logger'
-import { HostedZone } from 'aws-sdk/clients/route53'
 import { createCertificateValidationDNSRecord } from './route53'
 
 export const getCertificateARN = async (domainName: string) => {

@@ -1,5 +1,5 @@
-import { ResourceRecord } from 'aws-sdk/clients/acm'
-import { HostedZone } from 'aws-sdk/clients/route53'
+import { ResourceRecord } from '@aws-sdk/client-acm'
+import { HostedZone } from '@aws-sdk/client-route-53'
 import inquirer from 'inquirer'
 import { getAll } from './aws-helper'
 import { route53 } from './aws-services'

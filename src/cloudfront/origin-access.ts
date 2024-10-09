@@ -1,4 +1,4 @@
-import { CloudFront } from 'aws-sdk'
+import { OriginAccessControl } from '@aws-sdk/client-cloudfront'
 import {
   cloudfront
 } from '../aws-services'

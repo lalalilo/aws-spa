@@ -1,4 +1,4 @@
-import { Tag } from 'aws-sdk/clients/s3'
+import { Tag } from '@aws-sdk/client-s3'
 import { createReadStream } from 'fs'
 import inquirer from 'inquirer'
 import { lookup } from 'mime-types'
