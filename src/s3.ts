@@ -46,7 +46,7 @@ export const confirmBucketManagement = async (bucketName: string) => {
   try {
     const { TagSet } = await s3.getBucketTagging({ Bucket: bucketName })
 
-    const tag = TagSet.find(
+    const tag = TagSet?.find(
       _tag =>
         _tag.Key === identifyingTag.Key && _tag.Value === identifyingTag.Value
     )

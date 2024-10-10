@@ -5,7 +5,7 @@ import {
 import { logger } from '../logger'
 
 export type OAC = {
-  originAccessControl: CloudFront.OriginAccessControl
+  originAccessControl: OriginAccessControl
   ETag: string
 }
 
