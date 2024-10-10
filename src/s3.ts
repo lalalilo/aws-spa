@@ -1,4 +1,4 @@
-import { Tag } from 'aws-sdk/clients/s3'
+import { Tag } from '@aws-sdk/client-s3'
 import { createReadStream } from 'fs'
 import inquirer from 'inquirer'
 import { lookup } from 'mime-types'
@@ -9,7 +9,7 @@ import { logger } from './logger'
 export const doesS3BucketExists = async (bucketName: string) => {
   try {
     logger.info(`[S3] 🔍 Looking for bucket "${bucketName}"...`)
-    await s3.headBucket({ Bucket: bucketName }).promise()
+    await s3.headBucket({ Bucket: bucketName })
   } catch (error: any) {
     if (error.statusCode === 404) {
       logger.info(`[S3] 😬 Bucket "${bucketName}" not found...`)
@@ -26,11 +26,9 @@ export const doesS3BucketExists = async (bucketName: string) => {
 export const createBucket = async (bucketName: string) => {
   logger.info(`[S3] ✏️ Creating "${bucketName}" bucket...`)
   try {
-    await s3
-      .createBucket({
+    await s3.createBucket({
         Bucket: bucketName,
       })
-      .promise()
   } catch (error: any) {
     if (error.statusCode === 409) {
       throw new Error(
@@ -46,9 +44,14 @@ export const confirmBucketManagement = async (bucketName: string) => {
     `[S3] 🔍 Checking that tag "${identifyingTag.Key}:${identifyingTag.Value}" exists on bucket "${bucketName}"...`
   )
   try {
-    const { TagSet } = await s3
-      .getBucketTagging({ Bucket: bucketName })
-      .promise()
+    const { TagSet } = await s3.getBucketTagging({ Bucket: bucketName })
+
+    if (!TagSet) {
+      logger.info(
+        `[S3] ❌ Tag "${identifyingTag.Key}:${identifyingTag.Value}" not found`
+      )
+      return false
+    }
 
     const tag = TagSet.find(
       _tag =>
@@ -61,6 +64,7 @@ export const confirmBucketManagement = async (bucketName: string) => {
       )
       return true
     }
+    return false
   } catch (error: any) {
     if (error.statusCode !== 404) {
       throw error
@@ -85,14 +89,12 @@ export const tagBucket = async (bucketName: string) => {
   logger.info(
     `[S3] ✏️ Tagging "${bucketName}" bucket with "${identifyingTag.Key}:${identifyingTag.Value}"...`
   )
-  await s3
-    .putBucketTagging({
+  await s3.putBucketTagging({
       Bucket: bucketName,
       Tagging: {
         TagSet: [identifyingTag],
       },
     })
-    .promise()
 }
 
 export const removeBucketWebsite = (bucketName: string) => {
@@ -100,7 +102,7 @@ export const removeBucketWebsite = (bucketName: string) => {
     `[S3] 🔏 Ensure bucket "${bucketName}" is not a static website hosting`
   )
   try {
-    return s3.deleteBucketWebsite({ Bucket: bucketName }).promise()
+    return s3.deleteBucketWebsite({ Bucket: bucketName })
   } catch (error) {
     logger.error(
       `[S3] ❌ Error when removing static website hosting for bucket "${bucketName}"`,
@@ -113,41 +115,38 @@ export const setBucketWebsite = (bucketName: string) => {
   logger.info(
     `[S3] ✏️ Set bucket website with IndexDocument: "index.html" & ErrorDocument: "index.html" to "${bucketName}"...`
   )
-  return s3
-    .putBucketWebsite({
-      Bucket: bucketName,
-      WebsiteConfiguration: {
-        ErrorDocument: {
-          Key: 'index.html',
-        },
-        IndexDocument: {
-          Suffix: 'index.html',
-        },
+  return s3.putBucketWebsite({
+    Bucket: bucketName,
+    WebsiteConfiguration: {
+      ErrorDocument: {
+        Key: 'index.html',
       },
-    })
-    .promise()
+      IndexDocument: {
+        Suffix: 'index.html',
+      },
+    },
+  })
 }
 
 export const setBucketPolicy = (bucketName: string) => {
   logger.info(`[S3] ✏️ Allow public read to "${bucketName}"...`)
-  return s3
-    .putBucketPolicy({
-      Bucket: bucketName,
-      Policy: JSON.stringify({
-        Statement: [
-          {
-            Sid: 'AllowPublicRead',
-            Effect: 'Allow',
-            Principal: {
-              AWS: '*',
-            },
-            Action: 's3:GetObject',
-            Resource: `arn:aws:s3:::${bucketName}/*`,
+  return s3.putBucketPolicy({
+    Bucket: bucketName,
+    Policy: JSON.stringify({
+      Statement: [
+        {
+          Sid: 'AllowPublicRead',
+          Effect: 'Allow',
+          Principal: {
+            AWS: '*',
           },
-        ],
-      }),
-    })
-    .promise()
+          Action: 's3:GetObject',
+          Resource: `arn:aws:s3:::${bucketName}/*`,
+        },
+      ],
+    }),
+  })
+
 }
 
 export const setBucketPolicyForOAC = (
@@ -158,29 +157,27 @@ export const setBucketPolicyForOAC = (
     `[S3] 🔏 Allow distribution ${distributionId} to read from "${bucketName}"...`
   )
   try {
-    return s3
-      .putBucketPolicy({
-        Bucket: bucketName,
-        Policy: JSON.stringify({
-          Statement: [
-            {
-              Sid: 'AllowCloudFrontServicePrincipal',
-              Effect: 'Allow',
-              Principal: {
-                Service: 'cloudfront.amazonaws.com',
-              },
-              Action: 's3:GetObject',
-              Resource: `arn:aws:s3:::${bucketName}/*`,
-              Condition: {
-                StringEquals: {
-                  'AWS:SourceArn': `arn:aws:cloudfront::651828462322:distribution/${distributionId}`,
-                },
+    return s3.putBucketPolicy({
+      Bucket: bucketName,
+      Policy: JSON.stringify({
+        Statement: [
+          {
+            Sid: 'AllowCloudFrontServicePrincipal',
+            Effect: 'Allow',
+            Principal: {
+              Service: 'cloudfront.amazonaws.com',
+            },
+            Action: 's3:GetObject',
+            Resource: `arn:aws:s3:::${bucketName}/*`,
+            Condition: {
+              StringEquals: {
+                'AWS:SourceArn': `arn:aws:cloudfront::651828462322:distribution/${distributionId}`,
               },
             },
-          ],
-        }),
-      })
-      .promise()
+          },
+        ],
+      }),
+    })
   } catch (error) {
     logger.error(
       `[S3] ❌ Error when allowing distribution to read from "${bucketName}"`,
@@ -202,7 +199,7 @@ export const blockBucketPublicAccess = (bucketName: string) => {
   }
 
   try {
-    return s3.putPublicAccessBlock(params).promise()
+    return s3.putPublicAccessBlock(params)
   } catch (error) {
     logger.error(
       `[S3] ❌ Error blocking public access for bucket "${bucketName}"`,
@@ -214,7 +211,7 @@ export const blockBucketPublicAccess = (bucketName: string) => {
 export const allowBucketPublicAccess = (bucketName: string) => {
   logger.info(`[S3] ✅ Allow public access for bucket "${bucketName}"...`)
   try {
-    return s3.deletePublicAccessBlock({ Bucket: bucketName }).promise()
+    return s3.deletePublicAccessBlock({ Bucket: bucketName })
   } catch (error) {
     logger.error(
       `[S3] ❌ Error allowing public access for bucket "${bucketName}"`,
@@ -243,17 +240,15 @@ export const syncToS3 = function (
       const key = file.replace(`${folder}/`, '')
 
       const prefix = subfolder ? `${subfolder}/` : ''
-      return s3
-        .putObject({
-          Bucket: bucketName,
-          Key: `${prefix}${key}`,
-          Body: createReadStream(file),
-          CacheControl: getCacheControl(key, cacheBustedPrefix),
-          ContentType:
-            lookup(filenameParts[filenameParts.length - 1]) ||
-            'application/octet-stream',
-        })
-        .promise()
+      return s3.putObject({
+        Bucket: bucketName,
+        Key: `${prefix}${key}`,
+        Body: createReadStream(file),
+        CacheControl: getCacheControl(key, cacheBustedPrefix),
+        ContentType:
+          lookup(filenameParts[filenameParts.length - 1]) ||
+          'application/octet-stream',
+      })
     })
   )
 }
