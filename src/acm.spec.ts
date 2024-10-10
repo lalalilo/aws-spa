@@ -1,3 +1,4 @@
+import * as AcmAWS from '@aws-sdk/client-acm'
 import { createCertificate, domainNameMatch, getCertificateARN } from './acm'
 import { acm, route53 } from './aws-services'
 import { awsResolve } from './test-helper'
@@ -13,7 +14,7 @@ describe('acm', () => {
   describe('getCertificateARN', () => {
     const listCertificatesMock = jest.spyOn(acm, 'listCertificates')
     const describeCertificateMock = jest.spyOn(acm, 'describeCertificate')
-    const waitForMock = jest.spyOn(acm, 'waitFor')
+    const waitForMock = jest.spyOn(AcmAWS, 'waitUntilCertificateValidated')
 
     afterEach(() => {
       listCertificatesMock.mockReset()
@@ -258,7 +259,7 @@ describe('acm', () => {
 
   describe('createCertificate', () => {
     const requestCertificateMock = jest.spyOn(acm, 'requestCertificate')
-    const waitForMock = jest.spyOn(acm, 'waitFor')
+    const waitForMock = jest.spyOn(AcmAWS, 'waitUntilCertificateValidated')
     const describeCertificateMock = jest.spyOn(acm, 'describeCertificate')
     const changeResourceRecordSetsMock = jest.spyOn(
       route53,
