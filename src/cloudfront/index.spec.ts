@@ -1,3 +1,4 @@
+import * as CloudfrontAWS from '@aws-sdk/client-cloudfront'
 import {
   createCloudFrontDistribution,
   findDeployedCloudfrontDistribution,
@@ -22,7 +23,7 @@ describe('cloudfront', () => {
       cloudfront,
       'listTagsForResource'
     )
-    const waitForMock = jest.spyOn(cloudfront, 'waitFor')
+    const waitForMock = jest.spyOn(CloudfrontAWS, 'waitUntilDistributionDeployed')
 
     afterEach(() => {
       listDistributionMock.mockReset()
@@ -110,7 +111,7 @@ describe('cloudfront', () => {
 
   describe('invalidateCloudfrontCache', () => {
     const createInvalidationMock = jest.spyOn(cloudfront, 'createInvalidation')
-    const waitForMock = jest.spyOn(cloudfront, 'waitFor')
+    const waitForMock = jest.spyOn(CloudfrontAWS, 'waitUntilInvalidationCompleted')
 
     afterEach(() => {
       createInvalidationMock.mockReset()
@@ -160,7 +161,7 @@ describe('cloudfront', () => {
 
   describe('invalidateCloudfrontCacheWithRetry', () => {
     const createInvalidationMock = jest.spyOn(cloudfront, 'createInvalidation')
-    const waitForMock = jest.spyOn(cloudfront, 'waitFor')
+    const waitForMock = jest.spyOn(CloudfrontAWS, 'waitUntilInvalidationCompleted')
 
     afterEach(() => {
       createInvalidationMock.mockReset()
@@ -205,7 +206,7 @@ describe('cloudfront', () => {
 
   describe('createCloudFrontDistribution', () => {
     const createDistributionMock = jest.spyOn(cloudfront, 'createDistribution')
-    const waitForMock = jest.spyOn(cloudfront, 'waitFor')
+    const waitForMock = jest.spyOn(CloudfrontAWS, 'waitUntilDistributionDeployed')
     const tagResourceMock = jest.spyOn(cloudfront, 'tagResource')
 
     afterEach(() => {
