@@ -13,11 +13,15 @@ export const findHostedZone = async (domainName: string) => {
   const hostedZones = await getAll<HostedZone>(async (nextMarker, page) => {
     logger.info(`[route53] 🔍 List hosted zones (page ${page})...`)
     const { HostedZones, NextMarker } = await route53.listHostedZones({ Marker: nextMarker })
+    if (!HostedZones) {
+      logger.info(`[route53] 🧐 No hosted zones found`)
+      return { items: [], nextMarker: undefined }
+    }
     return { items: HostedZones, nextMarker: NextMarker }
   })
 
   const matchingHostedZones = hostedZones.filter(hostedZone =>
-    domainName.endsWith(hostedZone.Name.replace(/\.$/g, ''))
+    domainName.endsWith(hostedZone.Name!.replace(/\.$/g, ''))
   )
 
   if (matchingHostedZones.length === 1) {
@@ -38,7 +42,7 @@ export const findHostedZone = async (domainName: string) => {
     return matchingHostedZones[0]
   }
 
-  logger.info(`[route53] 🧐 No hosted zone found`)
+  logger.info(`[route53] 🧐 No matching hosted zones found`)
   return null
 }
 
@@ -49,20 +53,34 @@ export const createHostedZone = async (domainName: string) => {
       CallerReference: `aws-spa-${Date.now()}`,
     })
 
+  if (!HostedZone) {
+    throw new Error(`[route53] ❌ Failed to create hosted zone "${domainName}"`)
+  }
+
   return HostedZone
 }
 
 export const needsUpdateRecord = async (
-  hostedZoneId: string,
+  hostedZoneId: string | undefined,
   domainName: string,
   cloudfrontDomainName: string
 ) => {
+  if (!hostedZoneId) {
+    logger.warn(`[route53] 🧐 hostedZoneId is undefined`)
+    return false
+  }  
+
   logger.info(`[route53] 🔍 Looking for a matching record...`)
 
   const { ResourceRecordSets } = await route53.listResourceRecordSets({
       HostedZoneId: hostedZoneId,
       StartRecordName: domainName,
     })
+
+  if (!ResourceRecordSets || ResourceRecordSets.length === 0) {
+    logger.info(`[route53] 🔍 No matching record found.`)
+    return true
+  }
 
   for (const record of ResourceRecordSets) {
     if (record.Name !== `${domainName}.`) {
@@ -120,16 +138,17 @@ export const needsUpdateRecord = async (
       }
     }
   }
-
-  logger.info(`[route53] 🔍 No matching record found.`)
-  return true
 }
 
 export const updateRecord = async (
-  hostedZoneId: string,
+  hostedZoneId: string | undefined,
   domainName: string,
   cloudfrontDomainName: string
 ) => {
+  if (!hostedZoneId) {
+    throw new Error(`[route53] ❌ hostedZoneId is undefined`)
+  }
+
   logger.info(
     `[route53] ✏️ Upserting A: "${domainName}." → ${cloudfrontDomainName}...`
   )

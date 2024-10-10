@@ -9,7 +9,7 @@ export const getRoleARNForBasicLambdaExectution = async (
     logger.info(`[IAM] 🔍 looking for role ${roleName}...`)
     const { Role } = await iam.getRole({ RoleName: roleName })
     logger.info(`[IAM] 👍 ${roleName} found`)
-    return Role.Arn
+    return Role?.Arn
   } catch (error: any) {
     if (error.statusCode !== 404) {
       throw error
@@ -41,6 +41,6 @@ export const getRoleARNForBasicLambdaExectution = async (
 
     // timeout to avoid "The role defined for the function cannot be assumed by Lambda"
     await new Promise(resolve => setTimeout(resolve, waitAfterCreate))
-    return Role.Arn
+    return Role?.Arn
   }
 }

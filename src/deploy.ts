@@ -73,13 +73,13 @@ export const deploy = async (
   }
   await tagBucket(domainName)
 
-  let hostedZone = await findHostedZone(domainName)
-  if (!hostedZone) {
-    hostedZone = await createHostedZone(domainName)
-  }
+  let hostedZone = await findHostedZone(domainName) || await createHostedZone(domainName)
 
   let certificateArn = await getCertificateARN(domainName)
   if (!certificateArn) {
+    if (!hostedZone.Id) {
+      throw new Error(`[route53] hostedZone.Id is not defined for "${domainName}"`)
+    }
     certificateArn = await createCertificate(domainName, hostedZone.Id)
   }
 
