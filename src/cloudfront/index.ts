@@ -1,5 +1,4 @@
 import { Distribution, DistributionConfig, DistributionSummary, GetInvalidationCommandOutput, OriginProtocolPolicy, Tag } from '@aws-sdk/client-cloudfront'
-import { ServiceException } from '@aws-sdk/smithy-client'
 import { getAll } from '../aws-helper'
 import {
   cloudfront,
@@ -399,7 +398,7 @@ export const invalidateCloudfrontCacheWithRetry = async (
   wait: boolean = false,
   count: number = 0
 ): Promise<
-  GetInvalidationCommandOutput | ServiceException | void
+  GetInvalidationCommandOutput | void
 > => {
   try {
     return await invalidateCloudfrontCache(distributionId, paths, wait)
