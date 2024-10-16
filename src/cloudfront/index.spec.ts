@@ -12,6 +12,7 @@ import {
   getOriginId,
   getS3DomainName,
   getS3DomainNameForBlockedBucket,
+  waitUntil,
 } from '../aws-services'
 import { awsReject, awsResolve } from '../test-helper'
 
@@ -22,7 +23,8 @@ describe('cloudfront', () => {
       cloudfront,
       'listTagsForResource'
     )
-    const waitForMock = jest.spyOn(cloudfront, 'waitFor')
+
+    const waitForMock = jest.spyOn(waitUntil, 'distributionDeployed')
 
     afterEach(() => {
       listDistributionMock.mockReset()
@@ -110,7 +112,7 @@ describe('cloudfront', () => {
 
   describe('invalidateCloudfrontCache', () => {
     const createInvalidationMock = jest.spyOn(cloudfront, 'createInvalidation')
-    const waitForMock = jest.spyOn(cloudfront, 'waitFor')
+    const waitForMock = jest.spyOn(waitUntil, 'invalidationCompleted')
 
     afterEach(() => {
       createInvalidationMock.mockReset()
@@ -146,7 +148,9 @@ describe('cloudfront', () => {
     })
 
     it('should wait for invalidate if wait flag is true', async () => {
-      createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {} }))
+      createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {
+        Id: 'some-invalidation-id'
+      } }))
       waitForMock.mockReturnValue(awsResolve())
       await invalidateCloudfrontCache(
         'some-distribution-id',
@@ -154,13 +158,16 @@ describe('cloudfront', () => {
         true
       )
       expect(waitForMock).toHaveBeenCalledTimes(1)
-      expect(waitForMock.mock.calls[0][0]).toEqual('invalidationCompleted')
+      expect(waitForMock).toHaveBeenCalledWith(expect.anything(), {
+        DistributionId: 'some-distribution-id',
+        Id: 'some-invalidation-id'
+      })
     })
   })
 
   describe('invalidateCloudfrontCacheWithRetry', () => {
     const createInvalidationMock = jest.spyOn(cloudfront, 'createInvalidation')
-    const waitForMock = jest.spyOn(cloudfront, 'waitFor')
+    const waitForMock = jest.spyOn(waitUntil, 'invalidationCompleted')
 
     afterEach(() => {
       createInvalidationMock.mockReset()
@@ -186,8 +193,6 @@ describe('cloudfront', () => {
         .mockReturnValueOnce(awsReject(1))
         .mockReturnValueOnce(awsReject(1))
         .mockReturnValueOnce(awsReject(1))
-        .mockReturnValueOnce(awsReject(1))
-        .mockReturnValueOnce(awsReject(1))
         .mockReturnValueOnce(awsResolve({ Invalidation: {} }))
 
       try {
@@ -205,7 +210,7 @@ describe('cloudfront', () => {
 
   describe('createCloudFrontDistribution', () => {
     const createDistributionMock = jest.spyOn(cloudfront, 'createDistribution')
-    const waitForMock = jest.spyOn(cloudfront, 'waitFor')
+    const waitForMock = jest.spyOn(waitUntil, 'distributionDeployed')
     const tagResourceMock = jest.spyOn(cloudfront, 'tagResource')
 
     afterEach(() => {
@@ -225,7 +230,7 @@ describe('cloudfront', () => {
         'hello.lalilo.com',
         'arn:certificate',
       )
-      expect(result).toBe(distribution)
+      expect(result).toEqual(distribution)
       expect(tagResourceMock).toHaveBeenCalledTimes(1)
       expect(createDistributionMock).toHaveBeenCalledTimes(1)
       const distributionParam: any = createDistributionMock.mock.calls[0][0]
@@ -243,7 +248,7 @@ describe('cloudfront', () => {
       )
 
       expect(waitForMock).toHaveBeenCalledTimes(1)
-      expect(waitForMock).toHaveBeenCalledWith('distributionDeployed', {
+      expect(waitForMock).toHaveBeenCalledWith(expect.anything(), {
         Id: 'distribution-id',
       })
     })

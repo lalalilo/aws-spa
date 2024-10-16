@@ -7,16 +7,15 @@ export const getRoleARNForBasicLambdaExectution = async (
 ) => {
   try {
     logger.info(`[IAM] 🔍 looking for role ${roleName}...`)
-    const { Role } = await iam.getRole({ RoleName: roleName }).promise()
+    const { Role } = await iam.getRole({ RoleName: roleName })
     logger.info(`[IAM] 👍 ${roleName} found`)
-    return Role.Arn
+    return Role?.Arn
   } catch (error: any) {
     if (error.statusCode !== 404) {
       throw error
     }
     logger.info(`[IAM] ✏️ ${roleName} not found. Creating it...`)
-    const { Role } = await iam
-      .createRole({
+    const { Role } = await iam.createRole({
         AssumeRolePolicyDocument: JSON.stringify({
           Version: '2012-10-17',
           Statement: [
@@ -31,20 +30,17 @@ export const getRoleARNForBasicLambdaExectution = async (
         }),
         RoleName: roleName,
       })
-      .promise()
 
-    await iam
-      .attachRolePolicy({
+    await iam.attachRolePolicy({
         PolicyArn:
           'arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole',
         RoleName: roleName,
       })
-      .promise()
 
     logger.info(`[IAM] 👍 ${roleName} created`)
 
     // timeout to avoid "The role defined for the function cannot be assumed by Lambda"
     await new Promise(resolve => setTimeout(resolve, waitAfterCreate))
-    return Role.Arn
+    return Role?.Arn
   }
 }

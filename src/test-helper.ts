@@ -1,7 +1,3 @@
-export const awsResolve = (value?: any): any => ({
-  promise: () => Promise.resolve(value),
-})
+export const awsResolve = (value?: any): any => Promise.resolve(value)
 
-export const awsReject = (statusCode: number, message: string = ''): any => ({
-  promise: () => Promise.reject({ statusCode, message }),
-})
+export const awsReject = (statusCode: number, message: string = ''): any => Promise.reject({ statusCode, message })

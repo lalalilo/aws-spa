@@ -1,5 +1,5 @@
-import { ResourceRecord } from 'aws-sdk/clients/acm'
-import { HostedZone } from 'aws-sdk/clients/route53'
+import { ResourceRecord } from '@aws-sdk/client-acm'
+import { HostedZone } from '@aws-sdk/client-route-53'
 import inquirer from 'inquirer'
 import { getAll } from './aws-helper'
 import { route53 } from './aws-services'
@@ -12,14 +12,16 @@ export const findHostedZone = async (domainName: string) => {
 
   const hostedZones = await getAll<HostedZone>(async (nextMarker, page) => {
     logger.info(`[route53] 🔍 List hosted zones (page ${page})...`)
-    const { HostedZones, NextMarker } = await route53
-      .listHostedZones({ Marker: nextMarker })
-      .promise()
+    const { HostedZones, NextMarker } = await route53.listHostedZones({ Marker: nextMarker })
+    if (!HostedZones) {
+      logger.info(`[route53] 🧐 No hosted zones found`)
+      return { items: [], nextMarker: undefined }
+    }
     return { items: HostedZones, nextMarker: NextMarker }
   })
 
   const matchingHostedZones = hostedZones.filter(hostedZone =>
-    domainName.endsWith(hostedZone.Name.replace(/\.$/g, ''))
+    domainName.endsWith(hostedZone.Name!.replace(/\.$/g, ''))
   )
 
   if (matchingHostedZones.length === 1) {
@@ -40,35 +42,45 @@ export const findHostedZone = async (domainName: string) => {
     return matchingHostedZones[0]
   }
 
-  logger.info(`[route53] 🧐 No hosted zone found`)
+  logger.info(`[route53] 🧐 No matching hosted zones found`)
   return null
 }
 
 export const createHostedZone = async (domainName: string) => {
   logger.info(`[route53] ✏️ Creating hosted zone "${domainName}"...`)
-  const { HostedZone } = await route53
-    .createHostedZone({
+  const { HostedZone } = await route53.createHostedZone({
       Name: domainName,
       CallerReference: `aws-spa-${Date.now()}`,
     })
-    .promise()
+
+  if (!HostedZone) {
+    throw new Error(`[route53] ❌ Failed to create hosted zone "${domainName}"`)
+  }
 
   return HostedZone
 }
 
 export const needsUpdateRecord = async (
-  hostedZoneId: string,
+  hostedZoneId: string | undefined,
   domainName: string,
   cloudfrontDomainName: string
 ) => {
+  if (!hostedZoneId) {
+    logger.warn(`[route53] 🧐 hostedZoneId is undefined`)
+    return false
+  }  
+
   logger.info(`[route53] 🔍 Looking for a matching record...`)
 
-  const { ResourceRecordSets } = await route53
-    .listResourceRecordSets({
+  const { ResourceRecordSets } = await route53.listResourceRecordSets({
       HostedZoneId: hostedZoneId,
       StartRecordName: domainName,
     })
-    .promise()
+
+  if (!ResourceRecordSets || ResourceRecordSets.length === 0) {
+    logger.info(`[route53] 🔍 No matching record found.`)
+    return true
+  }
 
   for (const record of ResourceRecordSets) {
     if (record.Name !== `${domainName}.`) {
@@ -126,21 +138,21 @@ export const needsUpdateRecord = async (
       }
     }
   }
-
-  logger.info(`[route53] 🔍 No matching record found.`)
-  return true
 }
 
 export const updateRecord = async (
-  hostedZoneId: string,
+  hostedZoneId: string | undefined,
   domainName: string,
   cloudfrontDomainName: string
 ) => {
+  if (!hostedZoneId) {
+    throw new Error(`[route53] ❌ hostedZoneId is undefined`)
+  }
+
   logger.info(
     `[route53] ✏️ Upserting A: "${domainName}." → ${cloudfrontDomainName}...`
   )
-  await route53
-    .changeResourceRecordSets({
+  await route53.changeResourceRecordSets({
       HostedZoneId: hostedZoneId,
       ChangeBatch: {
         Changes: [
@@ -159,7 +171,6 @@ export const updateRecord = async (
         ],
       },
     })
-    .promise()
 }
 
 export const createCertificateValidationDNSRecord = async (
@@ -169,8 +180,7 @@ export const createCertificateValidationDNSRecord = async (
   logger.info(
     `[Route53] Creating record ${record.Type}:${record.Name}=${record.Value} to validate SSL certificate`
   )
-  await route53
-    .changeResourceRecordSets({
+  await route53.changeResourceRecordSets({
       HostedZoneId: hostedZoneId,
       ChangeBatch: {
         Changes: [
@@ -186,5 +196,4 @@ export const createCertificateValidationDNSRecord = async (
         ],
       },
     })
-    .promise()
 }
