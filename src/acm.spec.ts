@@ -1,6 +1,5 @@
-import * as AcmAWS from '@aws-sdk/client-acm'
 import { createCertificate, domainNameMatch, getCertificateARN } from './acm'
-import { acm, route53 } from './aws-services'
+import { acm, route53, waitUntil } from './aws-services'
 import { awsResolve } from './test-helper'
 
 jest.mock('inquirer', () => {
@@ -14,7 +13,7 @@ describe('acm', () => {
   describe('getCertificateARN', () => {
     const listCertificatesMock = jest.spyOn(acm, 'listCertificates')
     const describeCertificateMock = jest.spyOn(acm, 'describeCertificate')
-    const waitForMock = jest.spyOn(AcmAWS, 'waitUntilCertificateValidated')
+    const waitForMock = jest.spyOn(waitUntil, 'certificateValidated')
 
     afterEach(() => {
       listCertificatesMock.mockReset()
@@ -259,7 +258,7 @@ describe('acm', () => {
 
   describe('createCertificate', () => {
     const requestCertificateMock = jest.spyOn(acm, 'requestCertificate')
-    const waitForMock = jest.spyOn(AcmAWS, 'waitUntilCertificateValidated')
+    const waitForMock = jest.spyOn(waitUntil, 'certificateValidated')
     const describeCertificateMock = jest.spyOn(acm, 'describeCertificate')
     const changeResourceRecordSetsMock = jest.spyOn(
       route53,
@@ -303,9 +302,8 @@ describe('acm', () => {
         requestCertificateMock.mock.calls[0][0]
       expect(requestCertificateParams.DomainName).toEqual('hello.example.com')
       expect(requestCertificateParams.ValidationMethod).toEqual('DNS')
-      expect(waitForMock).toHaveBeenCalledWith('certificateValidated', {
+      expect(waitForMock).toHaveBeenCalledWith(expect.anything(),{
         CertificateArn: 'arn:aws:acm:us-east-1:123456789:certificate/xxx',
-        $waiter: { delay: 10 },
       })
 
       expect(changeResourceRecordSetsMock).toHaveBeenCalledTimes(1)

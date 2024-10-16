@@ -1,4 +1,4 @@
-import { Distribution, DistributionConfig, DistributionSummary, GetInvalidationCommandOutput, OriginProtocolPolicy, Tag, waitUntilDistributionDeployed, waitUntilInvalidationCompleted } from '@aws-sdk/client-cloudfront'
+import { Distribution, DistributionConfig, DistributionSummary, GetInvalidationCommandOutput, OriginProtocolPolicy, Tag } from '@aws-sdk/client-cloudfront'
 import { ServiceException } from '@aws-sdk/smithy-client'
 import { getAll } from '../aws-helper'
 import {
@@ -6,6 +6,7 @@ import {
   getOriginId,
   getS3DomainName,
   getS3DomainNameForBlockedBucket,
+  waitUntil,
 } from '../aws-services'
 import { logger } from '../logger'
 import { DEFAULT_ROOT_OBJECT, NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR, NO_DEFAULT_ROOT_OBJECT_REDIRECTION_FUNCTION_NAME } from './constants'
@@ -83,7 +84,7 @@ export const findDeployedCloudfrontDistribution = async (
     logger.info(
       `[CloudFront] ⏱ Waiting for distribution to be deployed. This step might takes up to 25 minutes...`
     )
-    await waitUntilDistributionDeployed({
+    await waitUntil.distributionDeployed({
       client: cloudfront,
       maxWaitTime: 1500,
     }, { Id: distribution.Id })
@@ -144,7 +145,7 @@ export const createCloudFrontDistribution = async (
     `[CloudFront] ⏱ Waiting for distribution to be available. This step might takes up to 25 minutes...`
   )
 
-  await waitUntilDistributionDeployed({
+  await waitUntil.distributionDeployed({
     client: cloudfront,
     maxWaitTime: 1500,
   }, { Id: Distribution.Id })
@@ -363,6 +364,7 @@ export const invalidateCloudfrontCache = async (
   wait: boolean = false
 ) => {
   logger.info('[CloudFront] ✏️ Creating invalidation...')
+  
   const { Invalidation } = await cloudfront.createInvalidation({
       DistributionId: distributionId,
       InvalidationBatch: {
@@ -383,7 +385,7 @@ export const invalidateCloudfrontCache = async (
       '[CloudFront] ⏱ Waiting for invalidation to be completed (can take up to 10 minutes)...'
     )
 
-    await waitUntilInvalidationCompleted({
+    await waitUntil.invalidationCompleted({
       client: cloudfront,
       maxWaitTime: 600,
     }, { DistributionId: distributionId, Id: Invalidation.Id })
@@ -466,12 +468,12 @@ export const updateCloudFrontDistribution = async (
     logger.info(
       `[Cloudfront] ✏️ Update distribution configuration "${distributionId}"...`
     )
-
-    if (!oac?.originAccessControl?.Id) {
-      throw new Error(`[Cloudfront] No origin access control found for distribution "${distributionId}"`)
-    }
     
     if (shouldBlockBucketPublicAccess) {
+      if (!oac?.originAccessControl?.Id) {
+        throw new Error(`[Cloudfront] No origin access control found for distribution "${distributionId}"`)
+      }
+    
       updatedDistributionConfig = makeBucketPrivate(
         domainName,
         updatedDistributionConfig,

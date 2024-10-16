@@ -1,6 +1,6 @@
-import { CertificateSummary, ResourceRecord, waitUntilCertificateValidated } from '@aws-sdk/client-acm'
+import { CertificateSummary, ResourceRecord } from '@aws-sdk/client-acm'
 import { getAll } from './aws-helper'
-import { acm } from './aws-services'
+import { acm, waitUntil } from './aws-services'
 import { logger } from './logger'
 import { createCertificateValidationDNSRecord } from './route53'
 
@@ -87,7 +87,7 @@ export const getCertificateARN = async (domainName: string) => {
     `[ACM] ⏱ Waiting for certificate validation: the domain owner of "${domainName}" should have received an email...`
   )
 
-  await waitUntilCertificateValidated({
+  await waitUntil.certificateValidated({
     client: acm,
     maxWaitTime: 600,
   }, { CertificateArn: pendingCertificateARN })
@@ -149,7 +149,7 @@ const handleDNSValidation = async (
     `[ACM] ⏱ Request sent. Waiting for certificate validation by DNS`
   )
 
-  await waitUntilCertificateValidated({
+  await waitUntil.certificateValidated({
     client: acm,
     maxWaitTime: 600,
     minDelay: 10,

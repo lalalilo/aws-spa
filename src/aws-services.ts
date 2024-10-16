@@ -1,5 +1,5 @@
-import { ACM } from '@aws-sdk/client-acm'
-import { CloudFront } from '@aws-sdk/client-cloudfront'
+import { ACM, waitUntilCertificateValidated } from '@aws-sdk/client-acm'
+import { CloudFront, waitUntilDistributionDeployed, waitUntilInvalidationCompleted } from '@aws-sdk/client-cloudfront'
 import { IAM } from '@aws-sdk/client-iam'
 import { Lambda } from '@aws-sdk/client-lambda'
 import { Route53 } from '@aws-sdk/client-route-53'
@@ -60,3 +60,9 @@ export const getS3DomainName = (domainName: string) =>
 
 export const getOriginId = (domainName: string) =>
   `S3-Website-${getS3DomainName(domainName)}`
+
+export const waitUntil = {
+  distributionDeployed: waitUntilDistributionDeployed,
+  certificateValidated: waitUntilCertificateValidated,
+  invalidationCompleted: waitUntilInvalidationCompleted,
+}
