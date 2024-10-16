@@ -31,8 +31,7 @@ describe('upsertOriginAccessControl', () => {
     const distributionId = 'my-distribution-id'
     const oacName = getOriginAccessControlName(domainName, distributionId)
 
-    listOriginAccessControlsMock.mockReturnValue(
-      awsResolve({
+    listOriginAccessControlsMock.mockReturnValue(awsResolve({
         OriginAccessControlList: {
           Items: [
             {
@@ -41,8 +40,7 @@ describe('upsertOriginAccessControl', () => {
             },
           ],
         },
-      })
-    )
+      }))
 
     getOriginAccessControlMock.mockReturnValue(
       awsResolve({ OriginAccessControl: {}, ETag: 'my-etag' })

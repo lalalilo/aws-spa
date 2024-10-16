@@ -15,7 +15,10 @@ import {
 } from './s3'
 import { awsReject, awsResolve } from './test-helper'
 
-jest.mock('fs')
+jest.mock('fs', () => ({
+  ...jest.requireActual('fs'),
+  createReadStream: jest.fn(),
+}));
 jest.mock('inquirer', () => {
   return {
     __esModule: true,
