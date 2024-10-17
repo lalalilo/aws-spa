@@ -1,9 +1,10 @@
 import { ACM, waitUntilCertificateValidated } from '@aws-sdk/client-acm'
-import { CloudFront, waitUntilDistributionDeployed, waitUntilInvalidationCompleted } from '@aws-sdk/client-cloudfront'
+import { CloudFront, Distribution, waitUntilInvalidationCompleted } from '@aws-sdk/client-cloudfront'
 import { IAM } from '@aws-sdk/client-iam'
 import { Lambda } from '@aws-sdk/client-lambda'
 import { Route53 } from '@aws-sdk/client-route-53'
 import { S3 } from '@aws-sdk/client-s3'
+import { logger } from './logger'
 
 // Bucket region must be fixed so that website endpoint is fixe
 // https://docs.aws.amazon.com/fr_fr/general/latest/gr/s3.html
@@ -60,6 +61,42 @@ export const getS3DomainName = (domainName: string) =>
 
 export const getOriginId = (domainName: string) =>
   `S3-Website-${getS3DomainName(domainName)}`
+
+
+// re-implement aws-sdk's waitUntilDistributionDeployed() because the aws-sdk one is bugged
+const waitUntilDistributionDeployed = async (params: {
+  client: CloudFront,
+  maxWaitTime: number,
+}, distribution: { Id: string }): Promise<Distribution> => {
+
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      clearInterval(interval)
+      reject(new Error(`[CloudFront] ❌ Distribution not deployed after ${params.maxWaitTime} seconds`))
+    }, params.maxWaitTime * 1000)
+
+    const interval = setInterval(async () => {
+      try {
+        const { Distribution } = await params.client.getDistribution({ Id: distribution.Id })
+
+        if (!Distribution) {
+          return 
+        }
+
+        logger.info(`[CloudFront] 🔄 Checking distribution status: ${Distribution.Id} has status ${Distribution.Status}`)
+        if (Distribution.Status === 'Deployed') {
+          clearInterval(interval)
+          clearTimeout(timeout)
+          resolve(Distribution)
+        }
+      } catch (error) {
+        clearInterval(interval)
+        clearTimeout(timeout)
+        reject(error)
+      }
+    }, 10000)
+  });
+}
 
 export const waitUntil = {
   distributionDeployed: waitUntilDistributionDeployed,

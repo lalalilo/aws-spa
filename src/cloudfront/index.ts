@@ -87,6 +87,7 @@ export const findDeployedCloudfrontDistribution = async (
       client: cloudfront,
       maxWaitTime: 1500,
     }, { Id: distribution.Id })
+    
     logger.info(`[CloudFront] ✅ Distribution deployed: ${distribution.Id}`)
   }
 
