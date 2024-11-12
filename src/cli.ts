@@ -61,6 +61,13 @@ yargs
           
           This is useful if you want to host multiple versions of the app in the same s3 bucket.`,
         })
+        .option('redirect403ToRoot', {
+          type: 'boolean',
+          default: false,
+          describe: `Redirect 403 errors to the root of the SPA.
+          
+          This is useful if you want to use client-side routing with an S3 static website without using a hash router.`,
+        })
     },
     async argv => {
       if (!argv.domainName) {
@@ -75,7 +82,8 @@ yargs
           argv.cacheBustedPrefix,
           argv.noPrompt,
           argv.shouldBlockBucketPublicAccess,
-          argv.noDefaultRootObject
+          argv.noDefaultRootObject,
+          argv.redirect403ToRoot
         )
         logger.info('✅ done!')
         process.exit(0)

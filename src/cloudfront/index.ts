@@ -435,10 +435,12 @@ type UpdateCloudFrontDistributionOptions = {
   shouldBlockBucketPublicAccess: true
   noDefaultRootObject: boolean
   oac: OAC
+  redirect403ToRoot: boolean
 } | {
   shouldBlockBucketPublicAccess: false
   noDefaultRootObject: boolean
   oac: null
+  redirect403ToRoot: boolean
 }
 
 export const updateCloudFrontDistribution = async (
@@ -446,7 +448,7 @@ export const updateCloudFrontDistribution = async (
   domainName: string,
   options: UpdateCloudFrontDistributionOptions
 ) => {
-  const { shouldBlockBucketPublicAccess, oac, noDefaultRootObject } = options
+  const { shouldBlockBucketPublicAccess, oac, noDefaultRootObject, redirect403ToRoot } = options
   try {
     let functionARN: string | undefined
     let updatedDistributionConfig: DistributionConfig
@@ -480,6 +482,10 @@ export const updateCloudFrontDistribution = async (
         oac.originAccessControl.Id)
     } else {
       updatedDistributionConfig = makeBucketPublic(updatedDistributionConfig, domainName)
+    }
+
+    if (redirect403ToRoot) {
+      updatedDistributionConfig = add403RedirectionToRoot(updatedDistributionConfig)
     }
 
     const shouldUpdateDistribution = isDistributionConfigModified(DistributionConfig!, updatedDistributionConfig)
@@ -637,3 +643,35 @@ const makeBucketPublic = (distributionConfig: DistributionConfig,
     },
   }
 }
+
+export const add403RedirectionToRoot = (distributionConfig: DistributionConfig): DistributionConfig => {
+  const existingErrorResponse = distributionConfig.CustomErrorResponses?.Items?.some(
+    (item) => item.ErrorCode === 403
+  );
+
+  if (existingErrorResponse) {
+    logger.info(
+      `[Cloudfront] 👍 a custom 403 error response already exists...`
+    )
+    return distributionConfig;
+  }
+
+  logger.info(
+    `[Cloudfront] ✏️ Adding custom 403 error response to distribution...`
+  )
+  return {
+    ...distributionConfig,
+    CustomErrorResponses: {
+      Quantity: (distributionConfig.CustomErrorResponses?.Quantity || 0) + 1,
+      Items: [
+        ...(distributionConfig.CustomErrorResponses?.Items || []),
+        {
+          ErrorCode: 403,
+          ResponsePagePath: '/index.html',
+          ResponseCode: '200',
+          ErrorCachingMinTTL: 10,
+        },
+      ],
+    },
+  };
+};
