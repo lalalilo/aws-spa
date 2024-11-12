@@ -344,13 +344,15 @@ describe('cloudfront', () => {
           await updateCloudFrontDistribution(distribution.Id, domainName, {
             shouldBlockBucketPublicAccess,
             noDefaultRootObject,
-            oac: { originAccessControl: { Id: 'oac-id' }, ETag: 'etag' }
+            oac: { originAccessControl: { Id: 'oac-id' }, ETag: 'etag' },
+            redirect403ToRoot: false,
           }) 
         } else {
           await updateCloudFrontDistribution(distribution.Id, domainName, {
             shouldBlockBucketPublicAccess,
             noDefaultRootObject,
-            oac: null
+            oac: null,
+            redirect403ToRoot: false,
           })
         }
 
@@ -381,6 +383,7 @@ describe('cloudfront', () => {
         shouldBlockBucketPublicAccess: true,
         noDefaultRootObject: false,
         oac,
+        redirect403ToRoot: false,
       })
 
       expect(updateDistribution).toHaveBeenCalled()
@@ -435,6 +438,7 @@ describe('cloudfront', () => {
           shouldBlockBucketPublicAccess: true,
           noDefaultRootObject,
           oac,
+          redirect403ToRoot: false,
         })
 
         expect(updateDistribution).toHaveBeenCalled()
@@ -457,5 +461,101 @@ describe('cloudfront', () => {
         )
       }
     )
+
+    it('should update the distribution if the 403 redirection option was not set in the existing config', async () => {
+      const domainName = 'hello.lalilo.com'
+      const originIdForPrivateBucket =
+        getS3DomainNameForBlockedBucket(domainName)
+
+      const distribution = {
+        Id: 'distribution-id',
+        Origins: { Items: [{ DomainName: originIdForPrivateBucket }] },
+        DefaultCacheBehavior: {
+          TargetOriginId: originIdForPrivateBucket,
+        },
+        CustomErrorResponses: {
+          Quantity: 0,
+        },
+      }
+
+      getDistributionConfigMock.mockReturnValue(
+        awsResolve({ DistributionConfig: distribution })
+      )
+
+      updateDistribution.mockReturnValueOnce(awsResolve())
+      await updateCloudFrontDistribution(distribution.Id, domainName, {
+        shouldBlockBucketPublicAccess: false,
+        noDefaultRootObject: false,
+        oac: null,
+        redirect403ToRoot: true,
+      })
+
+      expect(updateDistribution).toHaveBeenCalled()
+      expect(updateDistribution).toHaveBeenCalledWith(
+        expect.objectContaining({
+          DistributionConfig: expect.objectContaining({
+            CustomErrorResponses: {
+              Quantity: 1,
+              Items: [
+                {
+                  ErrorCode: 403,
+                  ResponsePagePath: '/index.html',
+                  ResponseCode: '200',
+                  ErrorCachingMinTTL: 10,
+                },
+              ],
+            },
+          }),
+        })
+      )
+    })
+    it('should not update the distribution if the 403 redirection option is already set in the existing config', async () => {
+      const domainName = 'hello.lalilo.com'
+      const originIdForPrivateBucket =
+        getS3DomainNameForBlockedBucket(domainName)
+
+      const distribution = {
+        Id: 'distribution-id',
+        Origins: { Items: [{ DomainName: originIdForPrivateBucket }] },
+        DefaultRootObject: '',
+        DefaultCacheBehavior: {
+          TargetOriginId: originIdForPrivateBucket,
+          FunctionAssociations: {
+            Quantity: 1,
+            Items: [{
+              FunctionARN: 'plop',
+              EventType: 'viewer-request',
+            }]
+          }
+        },
+        CustomErrorResponses: {
+          Quantity: 1,
+          Items: [
+            {
+              ErrorCode: 403,
+              ResponsePagePath: '/index.html',
+              ResponseCode: '200',
+              ErrorCachingMinTTL: 10,
+            },
+          ],
+        },
+      }
+
+      getDistributionConfigMock.mockReturnValue(
+        awsResolve({ DistributionConfig: distribution })
+      )
+
+      await updateCloudFrontDistribution(distribution.Id, domainName, {
+        shouldBlockBucketPublicAccess: true,
+        noDefaultRootObject: true,
+        oac: {
+          originAccessControl: { Id: 'oac-id' },
+          ETag: 'etag',
+        },
+        redirect403ToRoot: true,
+      })
+
+      expect(updateDistribution).not.toHaveBeenCalled()
+    })
   })
 })

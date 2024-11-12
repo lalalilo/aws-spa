@@ -43,7 +43,8 @@ export const deploy = async (
   cacheBustedPrefix: string | undefined,
   noPrompt: boolean,
   shouldBlockBucketPublicAccess: boolean,
-  noDefaultRootObject: boolean
+  noDefaultRootObject: boolean,
+  redirect403ToRoot: boolean
 ) => {
   await predeployPrompt(Boolean(process.env.CI), noPrompt)
 
@@ -98,6 +99,7 @@ export const deploy = async (
       shouldBlockBucketPublicAccess: true,
       noDefaultRootObject,
       oac,
+      redirect403ToRoot,
     })
     await removeBucketWebsite(domainName)
     await blockBucketPublicAccess(domainName)
@@ -107,6 +109,7 @@ export const deploy = async (
       shouldBlockBucketPublicAccess: false,
       noDefaultRootObject,
       oac: null,
+      redirect403ToRoot,
     })
     await setBucketWebsite(domainName)
     await allowBucketPublicAccess(domainName)

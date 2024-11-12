@@ -62,7 +62,6 @@ export const getS3DomainName = (domainName: string) =>
 export const getOriginId = (domainName: string) =>
   `S3-Website-${getS3DomainName(domainName)}`
 
-
 // re-implement aws-sdk's waitUntilDistributionDeployed() because the aws-sdk one is bugged
 const waitUntilDistributionDeployed = async (params: {
   client: CloudFront,
