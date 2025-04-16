@@ -6,7 +6,7 @@ import {
   findDeployedCloudfrontDistribution,
   getCacheInvalidations,
   invalidateCloudfrontCacheWithRetry,
-  updateCloudFrontDistribution
+  updateCloudFrontDistribution,
 } from './cloudfront'
 import {
   cleanExistingOriginAccessControl,
@@ -33,6 +33,7 @@ import {
   setBucketWebsite,
   syncToS3,
   tagBucket,
+  upsertLifeCycleConfiguration,
 } from './s3'
 
 export const deploy = async (
@@ -44,7 +45,8 @@ export const deploy = async (
   noPrompt: boolean,
   shouldBlockBucketPublicAccess: boolean,
   noDefaultRootObject: boolean,
-  redirect403ToRoot: boolean
+  redirect403ToRoot: boolean,
+  objectExpirationDays: number | null
 ) => {
   await predeployPrompt(Boolean(process.env.CI), noPrompt)
 
@@ -74,12 +76,19 @@ export const deploy = async (
   }
   await tagBucket(domainName)
 
-  let hostedZone = await findHostedZone(domainName) || await createHostedZone(domainName)
+  if (objectExpirationDays) {
+    await upsertLifeCycleConfiguration(domainName, objectExpirationDays)
+  }
+
+  let hostedZone =
+    (await findHostedZone(domainName)) || (await createHostedZone(domainName))
 
   let certificateArn = await getCertificateARN(domainName)
   if (!certificateArn) {
     if (!hostedZone.Id) {
-      throw new Error(`[route53] hostedZone.Id is not defined for "${domainName}"`)
+      throw new Error(
+        `[route53] hostedZone.Id is not defined for "${domainName}"`
+      )
     }
     certificateArn = await createCertificate(domainName, hostedZone.Id)
   }
@@ -89,7 +98,7 @@ export const deploy = async (
   if (!distribution) {
     distribution = await createCloudFrontDistribution(
       domainName,
-      certificateArn,
+      certificateArn
     )
   }
 

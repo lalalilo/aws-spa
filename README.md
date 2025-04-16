@@ -68,6 +68,7 @@ aws-spa deploy app.example.com/$(git branch | grep * | cut -d ' ' -f2)
 - `--shouldBlockBucketPublicAccess`: This option will deploy the SPA with a bucket not being publicly accessible. Access to the bucket will be done through an Origin Access Control (OAC). Default value is false.
 - `--noDefaultRootobject`: Instead of using index.html as the root object, allows to resolve example.com/<branch> to example.com/<branch>/index.html using a cloudfront function.
 - `--redirect403ToRoot`: Redirect 403 errors to the root of the SPA. This is useful if you want to use client-side routing with an S3 static website without using a hash router.
+- `--objectExpirationDays`: Add a lifecycle configuration to the bucket that clean object after a number of days. This avoid having numerous outdated branch in the bucket.
 
 ## Migrate an existing SPA on aws-spa
 
@@ -106,6 +107,8 @@ If a CloudFront distribution with this S3 bucket already exists, the script will
 - s3:PutBucketPublicAccessBlock
 - s3:CreateBucket
 - s3:PutObject
+- s3:PutLifecycleConfiguration
+- s3:GetLifecycleConfiguration
 
 - route53:ListHostedZones
 - route53:CreateHostedZone
