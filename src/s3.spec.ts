@@ -8,10 +8,12 @@ import {
   createBucket,
   doesS3BucketExists,
   identifyingTag,
+  LIFE_CYCLE_OLD_BRANCH_ID,
   setBucketPolicy,
   setBucketWebsite,
   syncToS3,
   tagBucket,
+  upsertLifeCycleConfiguration,
 } from './s3'
 import { awsReject, awsResolve } from './test-helper'
 
@@ -332,6 +334,100 @@ describe('s3', () => {
       expect(putObjectIndex).toBeDefined()
       expect(putObjectIndex[0].CacheControl).toEqual(
         'public, must-revalidate, proxy-revalidate, max-age=0'
+      )
+    })
+  })
+
+  describe(upsertLifeCycleConfiguration, () => {
+    const getBucketLifecycleConfigurationSpy = jest.spyOn(
+      s3,
+      'getBucketLifecycleConfiguration'
+    )
+
+    const putBucketLifecycleConfigurationSpy = jest.spyOn(
+      s3,
+      'putBucketLifecycleConfiguration'
+    )
+    putBucketLifecycleConfigurationSpy.mockReturnValue(awsResolve())
+
+    beforeEach(() => jest.resetAllMocks())
+
+    it('should add lifecycle rule if missing', async () => {
+      getBucketLifecycleConfigurationSpy.mockReturnValue(
+        awsResolve({ Rules: [] })
+      )
+
+      await upsertLifeCycleConfiguration('some-bucket', 60)
+      expect(logSpy).toBeCalledTimes(1)
+      expect(logSpy.mock.calls[0][0]).toContain(
+        'Lifecycle configuration "expire-old-branches" added'
+      )
+      expect(putBucketLifecycleConfigurationSpy).toBeCalledTimes(1)
+    })
+
+    it('should not add lifecycle rule if present', async () => {
+      getBucketLifecycleConfigurationSpy.mockReturnValue(
+        awsResolve({
+          Rules: [{ ID: LIFE_CYCLE_OLD_BRANCH_ID, Expiration: { Days: 60 } }],
+        })
+      )
+      await upsertLifeCycleConfiguration('some-bucket', 60)
+      expect(logSpy).toBeCalledTimes(1)
+      expect(logSpy.mock.calls[0][0]).toContain('already exists, no update')
+      expect(putBucketLifecycleConfigurationSpy).toBeCalledTimes(0)
+    })
+
+    it('should update lifecycle rule if duration is not the same', async () => {
+      getBucketLifecycleConfigurationSpy.mockReturnValue(
+        awsResolve({
+          Rules: [{ ID: LIFE_CYCLE_OLD_BRANCH_ID, Expiration: { Days: 45 } }],
+        })
+      )
+      await upsertLifeCycleConfiguration('some-bucket', 60)
+      expect(putBucketLifecycleConfigurationSpy).toBeCalledTimes(1)
+
+      const callParams = putBucketLifecycleConfigurationSpy.mock.calls[0][0]
+      expect(callParams.LifecycleConfiguration?.Rules).toHaveLength(1)
+
+      expect(putBucketLifecycleConfigurationSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          LifecycleConfiguration: expect.objectContaining({
+            Rules: expect.arrayContaining([
+              expect.objectContaining({
+                ID: LIFE_CYCLE_OLD_BRANCH_ID,
+                Expiration: { Days: 60 },
+              }),
+            ]),
+          }),
+        })
+      )
+    })
+
+    it('should not modify lifecycle rules already present except if prefix is not set', async () => {
+      getBucketLifecycleConfigurationSpy.mockReturnValue(
+        awsResolve({
+          Rules: [{ ID: 'Test' }, { ID: 'Test2', Filter: { Prefix: 'Test2' } }],
+        })
+      )
+      await upsertLifeCycleConfiguration('some-bucket', 60)
+      expect(putBucketLifecycleConfigurationSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          LifecycleConfiguration: expect.objectContaining({
+            Rules: expect.arrayContaining([
+              expect.objectContaining({
+                ID: LIFE_CYCLE_OLD_BRANCH_ID,
+              }),
+              expect.objectContaining({
+                ID: 'Test',
+                Filter: { Prefix: '' },
+              }),
+              expect.objectContaining({
+                ID: 'Test2',
+                Filter: { Prefix: 'Test2' },
+              }),
+            ]),
+          }),
+        })
       )
     })
   })

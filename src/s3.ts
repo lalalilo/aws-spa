@@ -1,4 +1,10 @@
-import { Tag } from '@aws-sdk/client-s3'
+import {
+  GetBucketLifecycleConfigurationCommandOutput,
+  GetBucketLifecycleConfigurationOutput,
+  LifecycleRule,
+  PutBucketLifecycleConfigurationCommandInput,
+  Tag,
+} from '@aws-sdk/client-s3'
 import { createReadStream } from 'fs'
 import inquirer from 'inquirer'
 import { lookup } from 'mime-types'
@@ -27,8 +33,8 @@ export const createBucket = async (bucketName: string) => {
   logger.info(`[S3] ✏️ Creating "${bucketName}" bucket...`)
   try {
     await s3.createBucket({
-        Bucket: bucketName,
-      })
+      Bucket: bucketName,
+    })
   } catch (error: any) {
     if (error.statusCode === 409) {
       throw new Error(
@@ -82,11 +88,11 @@ export const tagBucket = async (bucketName: string) => {
     `[S3] ✏️ Tagging "${bucketName}" bucket with "${identifyingTag.Key}:${identifyingTag.Value}"...`
   )
   await s3.putBucketTagging({
-      Bucket: bucketName,
-      Tagging: {
-        TagSet: [identifyingTag],
-      },
-    })
+    Bucket: bucketName,
+    Tagging: {
+      TagSet: [identifyingTag],
+    },
+  })
 }
 
 export const removeBucketWebsite = (bucketName: string) => {
@@ -138,7 +144,6 @@ export const setBucketPolicy = (bucketName: string) => {
       ],
     }),
   })
-
 }
 
 export const setBucketPolicyForOAC = (
@@ -264,4 +269,70 @@ const getCacheControl = (
   }
 
   return undefined
+}
+
+export const LIFE_CYCLE_OLD_BRANCH_ID = 'expire-old-branches'
+export const upsertLifeCycleConfiguration = async (
+  bucketName: string,
+  objectExpirationDays: number
+) => {
+  let hasSimilarRule = false
+  let lifeCycleConfiguration: GetBucketLifecycleConfigurationOutput = {
+    Rules: [],
+  }
+
+  try {
+    lifeCycleConfiguration = await s3.getBucketLifecycleConfiguration({
+      Bucket: bucketName,
+    })
+    hasSimilarRule =
+      lifeCycleConfiguration.Rules?.some(
+        rule =>
+          rule.ID === LIFE_CYCLE_OLD_BRANCH_ID &&
+          rule.Expiration?.Days === objectExpirationDays
+      ) ?? false
+  } catch (error: any) {
+    if (error.Code !== 'NoSuchLifecycleConfiguration') {
+      throw error
+    }
+  }
+
+  if (hasSimilarRule) {
+    logger.info(
+      `[S3] 👍 Lifecycle configuration "${LIFE_CYCLE_OLD_BRANCH_ID}" already exists, no update required for "${bucketName}" `
+    )
+    return
+  }
+
+  lifeCycleConfiguration.Rules?.forEach((rule: LifecycleRule) => {
+    if (!rule.Filter) {
+      rule.Filter = { Prefix: '' }
+    }
+  })
+  const rulesToKeep = lifeCycleConfiguration.Rules?.filter(
+    rule => rule.ID !== LIFE_CYCLE_OLD_BRANCH_ID
+  )
+
+  const updatedLifeCycleConfiguration: PutBucketLifecycleConfigurationCommandInput =
+    {
+      Bucket: bucketName,
+      LifecycleConfiguration: {
+        Rules: [
+          ...(rulesToKeep || []),
+          {
+            ID: LIFE_CYCLE_OLD_BRANCH_ID,
+            Status: 'Enabled',
+            Filter: { Prefix: '' },
+            Expiration: {
+              Days: objectExpirationDays,
+            },
+          },
+        ],
+      },
+    }
+
+  await s3.putBucketLifecycleConfiguration(updatedLifeCycleConfiguration)
+  logger.info(
+    `[S3] ✅ Lifecycle configuration "${LIFE_CYCLE_OLD_BRANCH_ID}" added for "${bucketName}" `
+  )
 }
