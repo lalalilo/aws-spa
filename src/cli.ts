@@ -51,22 +51,43 @@ yargs
           type: 'boolean',
           default: false,
           describe: `Use a REST API endpoint as the origin, and restrict access with an OAC".
- 
+
           This is useful if you want to keep your bucket private. This would not work for multiple versions hosted in the same s3 bucket.`,
         })
         .option('noDefaultRootObject', {
           type: 'boolean',
           default: false,
-          describe: `Don't set the default route object to index.html. 
-          
+          describe: `Don't set the default route object to index.html.
+
           This is useful if you want to host multiple versions of the app in the same s3 bucket.`,
         })
         .option('redirect403ToRoot', {
           type: 'boolean',
           default: false,
           describe: `Redirect 403 errors to the root of the SPA.
-          
+
           This is useful if you want to use client-side routing with an S3 static website without using a hash router.`,
+        })
+        .option('objectExpirationDays', {
+          type: 'number',
+          default: undefined,
+          describe: `Add a lifecycle configuration to the bucket that clean object after X days.
+
+          This should be a valid, positive number. (ex: --objectExpirationDays 60).`,
+          coerce: arg => {
+            if (arg === undefined || arg === null) {
+              return null
+            }
+
+            const numValue = Number(arg)
+            if (isNaN(numValue) || numValue <= 0) {
+              throw new Error(
+                'objectExpirationDays must be a valid positive number'
+              )
+            }
+
+            return numValue
+          },
         })
     },
     async argv => {
@@ -83,7 +104,8 @@ yargs
           argv.noPrompt,
           argv.shouldBlockBucketPublicAccess,
           argv.noDefaultRootObject,
-          argv.redirect403ToRoot
+          argv.redirect403ToRoot,
+          argv.objectExpirationDays
         )
         logger.info('✅ done!')
         process.exit(0)
