@@ -1,4 +1,12 @@
-import { Distribution, DistributionConfig, DistributionSummary, GetInvalidationCommandOutput, OriginProtocolPolicy, Tag } from '@aws-sdk/client-cloudfront'
+import {
+  Distribution,
+  DistributionConfig,
+  DistributionSummary,
+  EventType,
+  GetInvalidationCommandOutput,
+  OriginProtocolPolicy,
+  Tag,
+} from '@aws-sdk/client-cloudfront'
 import { getAll } from '../aws-helper'
 import {
   cloudfront,
@@ -371,6 +379,58 @@ const getBaseDistributionConfig = (
   },
 })
 
+/**
+ * This function will wipe all existing functions on the distribution. It is useful because we don't want to add a duplicate function on the distribution
+ * (updated functions will have a different ARN).
+ * It should be only called once and the sooner possible to avoid wiping new configuration (for instance a function is added on the noDefaultRootObjectCase)
+ */
+const clearDistributionFunctions = (
+  distributionConfig: DistributionConfig
+): DistributionConfig => {
+  return {
+    ...distributionConfig,
+    DefaultCacheBehavior: {
+      ...distributionConfig.DefaultCacheBehavior!,
+      FunctionAssociations: {
+        Quantity: 0,
+        Items: [],
+      },
+    },
+  }
+}
+
+export type CloudFrontFunctionsAssignmentDefinition = Record<
+  EventType,
+  string[]
+>
+
+const assignFunctionsToDistribution = async (
+  distributionConfig: DistributionConfig,
+  functionAssignmentDefinitions: CloudFrontFunctionsAssignmentDefinition
+): Promise<DistributionConfig> => {
+  let updatedDistributionConfig = distributionConfig
+  for (const [eventType, functionNames] of Object.entries(
+    functionAssignmentDefinitions
+  )) {
+    for (const functionName of functionNames) {
+      const functionARN = await getCloudFrontFunctionARN(functionName)
+
+      if (!functionARN) {
+        throw new Error(
+          `[CloudFront] Requested CloudFront function "${functionName}" does not exists.`
+        )
+      }
+
+      updatedDistributionConfig = addFunctionToDistribution(
+        updatedDistributionConfig,
+        functionARN,
+        eventType as EventType
+      )
+    }
+  }
+  return updatedDistributionConfig
+}
+
 export const invalidateCloudfrontCache = async (
   distributionId: string,
   paths: string,
@@ -445,24 +505,36 @@ export const getCacheInvalidations = (
     .map(string => (subFolder ? `/${subFolder}/${string}` : `/${string}`))
     .join(',')
 
-type UpdateCloudFrontDistributionOptions = {
-  shouldBlockBucketPublicAccess: true
-  noDefaultRootObject: boolean
-  oac: OAC
-  redirect403ToRoot: boolean
-} | {
-  shouldBlockBucketPublicAccess: false
-  noDefaultRootObject: boolean
-  oac: null
-  redirect403ToRoot: boolean
+type CommonUpdateCloudFrontDistributionOptions = {
+  cloudFrontFunctionsAssignments: CloudFrontFunctionsAssignmentDefinition
 }
+type SpecificUpdateCloudFrontDistributionOptions =
+  | {
+      shouldBlockBucketPublicAccess: true
+      noDefaultRootObject: boolean
+      oac: OAC
+      redirect403ToRoot: boolean
+    }
+  | {
+      shouldBlockBucketPublicAccess: false
+      noDefaultRootObject: boolean
+      oac: null
+      redirect403ToRoot: boolean
+    }
 
 export const updateCloudFrontDistribution = async (
   distributionId: string,
   domainName: string,
-  options: UpdateCloudFrontDistributionOptions
+  options: CommonUpdateCloudFrontDistributionOptions &
+    SpecificUpdateCloudFrontDistributionOptions
 ) => {
-  const { shouldBlockBucketPublicAccess, oac, noDefaultRootObject, redirect403ToRoot } = options
+  const {
+    shouldBlockBucketPublicAccess,
+    oac,
+    noDefaultRootObject,
+    redirect403ToRoot,
+    cloudFrontFunctionsAssignments,
+  } = options
   try {
     let functionARN: string | undefined
     let updatedDistributionConfig: DistributionConfig
@@ -477,12 +549,29 @@ export const updateCloudFrontDistribution = async (
       )
     }
 
+    updatedDistributionConfig = clearDistributionFunctions(DistributionConfig)
+    updatedDistributionConfig = await assignFunctionsToDistribution(
+      updatedDistributionConfig,
+      cloudFrontFunctionsAssignments
+    )
+
     if (noDefaultRootObject) {
       functionARN =
         await createAndPublishNoDefaultRootObjectRedirectionFunction()
-        updatedDistributionConfig = addFunctionToDistribution(DistributionConfig, functionARN)
+      updatedDistributionConfig = {
+        ...updatedDistributionConfig,
+        DefaultRootObject: '',
+      }
+      updatedDistributionConfig = addFunctionToDistribution(
+        updatedDistributionConfig,
+        functionARN,
+        EventType.viewer_request
+      )
     } else {
-      updatedDistributionConfig = ensureFunctionIsNotAssociated(DistributionConfig)
+      updatedDistributionConfig = {
+        ...updatedDistributionConfig,
+        DefaultRootObject: DEFAULT_ROOT_OBJECT,
+      }
     }
 
     logger.info(
@@ -542,31 +631,27 @@ const isDistributionConfigModified = (
 
 const addFunctionToDistribution = (
   distributionConfig: DistributionConfig,
-  functionARN: string
-): DistributionConfig => ({
-  ...distributionConfig,
-  DefaultRootObject: '',
-  DefaultCacheBehavior: {
-    ...distributionConfig.DefaultCacheBehavior!,
-    FunctionAssociations: {
-      Quantity: 1,
-      Items: [{
-        FunctionARN: functionARN,
-        EventType: 'viewer-request',
-      }],
-    },
-  },
-})
-
-const ensureFunctionIsNotAssociated = (
-  distributionConfig: DistributionConfig,
-) => {
-  const configWithoutFunctions = {
+  functionARN: string,
+  eventType: EventType
+): DistributionConfig => {
+  const items =
+    distributionConfig.DefaultCacheBehavior!.FunctionAssociations?.Items ?? []
+  return {
     ...distributionConfig,
-    DefaultRootObject: DEFAULT_ROOT_OBJECT,
+    DefaultCacheBehavior: {
+      ...distributionConfig.DefaultCacheBehavior!,
+      FunctionAssociations: {
+        Quantity: items.length + 1,
+        Items: [
+          ...items,
+          {
+            FunctionARN: functionARN,
+            EventType: eventType,
+          },
+        ],
+      },
+    },
   }
-  delete configWithoutFunctions.DefaultCacheBehavior?.FunctionAssociations
-  return configWithoutFunctions
 }
 
 const makeBucketPrivate = (

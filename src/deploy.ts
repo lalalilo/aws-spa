@@ -7,6 +7,7 @@ import {
   getCacheInvalidations,
   invalidateCloudfrontCacheWithRetry,
   updateCloudFrontDistribution,
+  CloudFrontFunctionsAssignmentDefinition,
 } from './cloudfront'
 import {
   cleanExistingOriginAccessControl,
@@ -46,7 +47,8 @@ export const deploy = async (
   shouldBlockBucketPublicAccess: boolean,
   noDefaultRootObject: boolean,
   redirect403ToRoot: boolean,
-  objectExpirationDays: number | null
+  objectExpirationDays: number | null,
+  cloudFrontFunctionsAssignments: CloudFrontFunctionsAssignmentDefinition
 ) => {
   await predeployPrompt(Boolean(process.env.CI), noPrompt)
 
@@ -105,6 +107,7 @@ export const deploy = async (
   if (shouldBlockBucketPublicAccess) {
     const oac = await upsertOriginAccessControl(domainName, distribution.Id)
     await updateCloudFrontDistribution(distribution.Id, domainName, {
+      cloudFrontFunctionsAssignments,
       shouldBlockBucketPublicAccess: true,
       noDefaultRootObject,
       oac,
@@ -115,6 +118,7 @@ export const deploy = async (
     await setBucketPolicyForOAC(domainName, distribution.Id)
   } else {
     await updateCloudFrontDistribution(distribution.Id, domainName, {
+      cloudFrontFunctionsAssignments,
       shouldBlockBucketPublicAccess: false,
       noDefaultRootObject,
       oac: null,
