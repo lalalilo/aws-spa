@@ -48,6 +48,7 @@ export const deploy = async (
   noDefaultRootObject: boolean,
   redirect403ToRoot: boolean,
   objectExpirationDays: number | null,
+  additionalDomainNames: string[],
   cloudFrontFunctionsAssignments: CloudFrontFunctionsAssignmentDefinition
 ) => {
   await predeployPrompt(Boolean(process.env.CI), noPrompt)
@@ -107,6 +108,7 @@ export const deploy = async (
   if (shouldBlockBucketPublicAccess) {
     const oac = await upsertOriginAccessControl(domainName, distribution.Id)
     await updateCloudFrontDistribution(distribution.Id, domainName, {
+      additionalDomainNames,
       cloudFrontFunctionsAssignments,
       shouldBlockBucketPublicAccess: true,
       noDefaultRootObject,
@@ -118,6 +120,7 @@ export const deploy = async (
     await setBucketPolicyForOAC(domainName, distribution.Id)
   } else {
     await updateCloudFrontDistribution(distribution.Id, domainName, {
+      additionalDomainNames,
       cloudFrontFunctionsAssignments,
       shouldBlockBucketPublicAccess: false,
       noDefaultRootObject,

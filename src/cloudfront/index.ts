@@ -379,12 +379,7 @@ const getBaseDistributionConfig = (
   },
 })
 
-/**
- * This function will wipe all existing functions on the distribution. It is useful because we don't want to add a duplicate function on the distribution
- * (updated functions will have a different ARN).
- * It should be only called once and the sooner possible to avoid wiping new configuration (for instance a function is added on the noDefaultRootObjectCase)
- */
-const clearDistributionFunctions = (
+const clearDistributionConfigurationFunctions = (
   distributionConfig: DistributionConfig
 ): DistributionConfig => {
   return {
@@ -506,6 +501,7 @@ export const getCacheInvalidations = (
     .join(',')
 
 type CommonUpdateCloudFrontDistributionOptions = {
+  additionalDomainNames: string[]
   cloudFrontFunctionsAssignments: CloudFrontFunctionsAssignmentDefinition
 }
 type SpecificUpdateCloudFrontDistributionOptions =
@@ -533,6 +529,7 @@ export const updateCloudFrontDistribution = async (
     oac,
     noDefaultRootObject,
     redirect403ToRoot,
+    additionalDomainNames,
     cloudFrontFunctionsAssignments,
   } = options
   try {
@@ -549,7 +546,8 @@ export const updateCloudFrontDistribution = async (
       )
     }
 
-    updatedDistributionConfig = clearDistributionFunctions(DistributionConfig)
+    updatedDistributionConfig =
+      clearDistributionConfigurationFunctions(DistributionConfig)
     updatedDistributionConfig = await assignFunctionsToDistribution(
       updatedDistributionConfig,
       cloudFrontFunctionsAssignments
@@ -603,7 +601,17 @@ export const updateCloudFrontDistribution = async (
       )
     }
 
-    const shouldUpdateDistribution = isDistributionConfigModified(DistributionConfig!, updatedDistributionConfig)
+    if (additionalDomainNames.length > 0) {
+      updatedDistributionConfig = addAdditionalDomainNames(
+        updatedDistributionConfig,
+        additionalDomainNames
+      )
+    }
+
+    const shouldUpdateDistribution = isDistributionConfigModified(
+      DistributionConfig!,
+      updatedDistributionConfig
+    )
 
     if (!shouldUpdateDistribution) {
       logger.info(
@@ -764,10 +772,30 @@ const makeBucketPublic = (
   }
 }
 
-export const add403RedirectionToRoot = (distributionConfig: DistributionConfig): DistributionConfig => {
-  const existingErrorResponse = distributionConfig.CustomErrorResponses?.Items?.some(
-    (item) => item.ErrorCode === 403
-  );
+const addAdditionalDomainNames = (
+  distributionConfig: DistributionConfig,
+  domainNames: string[]
+): DistributionConfig => {
+  const updatedDomainNames = new Set([
+    ...(distributionConfig.Aliases?.Items ?? []),
+    ...domainNames,
+  ])
+  return {
+    ...distributionConfig,
+    Aliases: {
+      Quantity: updatedDomainNames.size,
+      Items: [...updatedDomainNames],
+    },
+  }
+}
+
+const add403RedirectionToRoot = (
+  distributionConfig: DistributionConfig
+): DistributionConfig => {
+  const existingErrorResponse =
+    distributionConfig.CustomErrorResponses?.Items?.some(
+      item => item.ErrorCode === 403
+    )
 
   if (existingErrorResponse) {
     logger.info(`[Cloudfront] 👍 a custom 403 error response already exists...`)
