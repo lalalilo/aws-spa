@@ -3,6 +3,7 @@ import {
   DistributionConfig,
   DistributionSummary,
   EventType,
+  FunctionStage,
   GetInvalidationCommandOutput,
   OriginProtocolPolicy,
   Tag,
@@ -220,8 +221,14 @@ const getCloudFrontFunctionARN = async (name: string) => {
   try {
     const { FunctionList } = await cloudfront.listFunctions()
 
-    const existingFunctionARN = FunctionList?.Items?.find(
-      item => item.Name === name
+    const existingFunctionARN = FunctionList?.Items?.sort(
+      (a, b) =>
+        (b.FunctionMetadata?.LastModifiedTime?.getTime() ?? 0) -
+        (a.FunctionMetadata?.LastModifiedTime?.getTime() ?? 0)
+    ).find(
+      item =>
+        item.Name === name &&
+        item.FunctionMetadata?.Stage === FunctionStage.LIVE
     )?.FunctionMetadata?.FunctionARN
 
     return existingFunctionARN
