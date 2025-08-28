@@ -1,4 +1,13 @@
-import { Distribution, DistributionConfig, DistributionSummary, GetInvalidationCommandOutput, OriginProtocolPolicy, Tag } from '@aws-sdk/client-cloudfront'
+import {
+  Distribution,
+  DistributionConfig,
+  DistributionSummary,
+  EventType,
+  FunctionStage,
+  GetInvalidationCommandOutput,
+  OriginProtocolPolicy,
+  Tag,
+} from '@aws-sdk/client-cloudfront'
 import { getAll } from '../aws-helper'
 import {
   cloudfront,
@@ -8,7 +17,11 @@ import {
   waitUntil,
 } from '../aws-services'
 import { logger } from '../logger'
-import { DEFAULT_ROOT_OBJECT, NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR, NO_DEFAULT_ROOT_OBJECT_REDIRECTION_FUNCTION_NAME } from './constants'
+import {
+  DEFAULT_ROOT_OBJECT,
+  NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR,
+  NO_DEFAULT_ROOT_OBJECT_REDIRECTION_FUNCTION_NAME,
+} from './constants'
 import { noDefaultRootObjectFunctions } from './noDefaultRootObjectFunction'
 import { OAC } from './origin-access'
 
@@ -20,7 +33,7 @@ export interface DistributionIdentificationDetail {
 
 export const findDeployedCloudfrontDistribution = async (
   domainName: string
-): Promise<DistributionSummary & DistributionIdentificationDetail | null> => {
+): Promise<(DistributionSummary & DistributionIdentificationDetail) | null> => {
   const distributions = await getAll<DistributionSummary>(
     async (nextMarker, page) => {
       logger.info(
@@ -28,8 +41,8 @@ export const findDeployedCloudfrontDistribution = async (
       )
 
       const { DistributionList } = await cloudfront.listDistributions({
-          Marker: nextMarker,
-        })
+        Marker: nextMarker,
+      })
 
       if (!DistributionList) {
         return { items: [], nextMarker: undefined }
@@ -58,7 +71,9 @@ export const findDeployedCloudfrontDistribution = async (
     throw new Error('[CloudFront] Distribution has no ID')
   }
 
-  const { Tags } = await cloudfront.listTagsForResource({ Resource: distribution.ARN })
+  const { Tags } = await cloudfront.listTagsForResource({
+    Resource: distribution.ARN,
+  })
 
   if (
     !Tags ||
@@ -76,18 +91,23 @@ export const findDeployedCloudfrontDistribution = async (
   logger.info(`[CloudFront] 👍 Distribution found: ${distribution.Id}`)
 
   if (!distribution.Status) {
-    throw new Error(`[CloudFront] Distribution ${distribution.Id} has no status`)
+    throw new Error(
+      `[CloudFront] Distribution ${distribution.Id} has no status`
+    )
   }
 
   if (['InProgress', 'In Progress'].includes(distribution.Status)) {
     logger.info(
       `[CloudFront] ⏱ Waiting for distribution to be deployed. This step might takes up to 25 minutes...`
     )
-    await waitUntil.distributionDeployed({
-      client: cloudfront,
-      maxWaitTime: 1500,
-    }, { Id: distribution.Id })
-    
+    await waitUntil.distributionDeployed(
+      {
+        client: cloudfront,
+        maxWaitTime: 1500,
+      },
+      { Id: distribution.Id }
+    )
+
     logger.info(`[CloudFront] ✅ Distribution deployed: ${distribution.Id}`)
   }
 
@@ -100,23 +120,21 @@ export const findDeployedCloudfrontDistribution = async (
   }
 }
 
-export const tagCloudFrontDistribution = async (
-  distribution: Distribution
-) => {
+const tagCloudFrontDistribution = async (distribution: Distribution) => {
   logger.info(
     `[CloudFront] ✏️ Tagging "${distribution.Id}" bucket with "${identifyingTag.Key}:${identifyingTag.Value}"...`
   )
   await cloudfront.tagResource({
-      Resource: distribution.ARN,
-      Tags: {
-        Items: [identifyingTag],
-      },
-    })
+    Resource: distribution.ARN,
+    Tags: {
+      Items: [identifyingTag],
+    },
+  })
 }
 
 export const createCloudFrontDistribution = async (
   domainName: string,
-  sslCertificateARN: string,
+  sslCertificateARN: string
 ): Promise<Distribution & DistributionIdentificationDetail> => {
   logger.info(
     `[CloudFront] ✏️ Creating Cloudfront distribution with origin "${getS3DomainName(
@@ -125,11 +143,11 @@ export const createCloudFrontDistribution = async (
   )
 
   const { Distribution } = await cloudfront.createDistribution({
-      DistributionConfig: getBaseDistributionConfig(
-        domainName,
-        sslCertificateARN,
-      ),
-    })
+    DistributionConfig: getBaseDistributionConfig(
+      domainName,
+      sslCertificateARN
+    ),
+  })
 
   if (!Distribution) {
     throw new Error('[CloudFront] Could not create distribution')
@@ -145,10 +163,13 @@ export const createCloudFrontDistribution = async (
     `[CloudFront] ⏱ Waiting for distribution to be available. This step might takes up to 25 minutes...`
   )
 
-  await waitUntil.distributionDeployed({
-    client: cloudfront,
-    maxWaitTime: 1500,
-  }, { Id: Distribution.Id })
+  await waitUntil.distributionDeployed(
+    {
+      client: cloudfront,
+      maxWaitTime: 1500,
+    },
+    { Id: Distribution.Id }
+  )
   logger.info(`[CloudFront] ✅ Distribution deployed: ${Distribution.Id}`)
 
   return {
@@ -165,15 +186,15 @@ const createAndPublishNoDefaultRootObjectRedirectionFunction = async () => {
     '_' +
     NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR
 
-    const currentFunctionARN = await isCloudFrontFunctionExisting(
-      cloudFrontRedirectionFunctionName
-    )
+  const currentFunctionARN = await getCloudFrontFunctionARN(
+    cloudFrontRedirectionFunctionName
+  )
 
   if (!currentFunctionARN) {
     const { createdFunctionETag, createdFunctionARN } =
       await createNoDefaultRootObjectFunction(cloudFrontRedirectionFunctionName)
 
-    if (!createdFunctionARN ) {
+    if (!createdFunctionARN) {
       throw new Error(
         `[CloudFront] Could not create function to handle redirection when no default root object. No ARN returned.`
       )
@@ -184,7 +205,7 @@ const createAndPublishNoDefaultRootObjectRedirectionFunction = async () => {
         `[CloudFront] Could not create function to handle redirection when no default root object. No Etag returned.`
       )
     }
-  
+
     await publishCloudFrontFunction(
       cloudFrontRedirectionFunctionName,
       createdFunctionETag
@@ -196,13 +217,21 @@ const createAndPublishNoDefaultRootObjectRedirectionFunction = async () => {
   return currentFunctionARN
 }
 
-const isCloudFrontFunctionExisting = async (name: string) => {
+const getCloudFrontFunctionARN = async (name: string) => {
   try {
-  const { FunctionList } = await cloudfront.listFunctions()
+    const { FunctionList } = await cloudfront.listFunctions()
 
-  const existingFunctionARN = FunctionList?.Items?.find(item => item.Name === name)?.FunctionMetadata?.FunctionARN
+    const existingFunctionARN = FunctionList?.Items?.sort(
+      (a, b) =>
+        (b.FunctionMetadata?.LastModifiedTime?.getTime() ?? 0) -
+        (a.FunctionMetadata?.LastModifiedTime?.getTime() ?? 0)
+    ).find(
+      item =>
+        item.Name === name &&
+        item.FunctionMetadata?.Stage === FunctionStage.LIVE
+    )?.FunctionMetadata?.FunctionARN
 
-  return existingFunctionARN
+    return existingFunctionARN
   } catch (error) {
     throw new Error(`[CloudFront] Error listing functions: ${error}`)
   }
@@ -215,20 +244,20 @@ const createNoDefaultRootObjectFunction = async (functionName: string) => {
   let createdFunctionETag: string | undefined
   let createdFunctionARN: string | undefined
   try {
-    const data = await cloudfront.createFunction(
-      {
-        Name: functionName,
-        FunctionCode: new TextEncoder().encode(noDefaultRootObjectFunctions[NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR]),
-        FunctionConfig: {
-          Runtime: 'cloudfront-js-2.0',
-          Comment:
-            'Redirects to branch specific index.html when no default root object is set',
-        },
-      }
-    )
+    const data = await cloudfront.createFunction({
+      Name: functionName,
+      FunctionCode: new TextEncoder().encode(
+        noDefaultRootObjectFunctions[NO_DEFAULT_ROOT_OBJECT_REDIRECTION_COLOR]
+      ),
+      FunctionConfig: {
+        Runtime: 'cloudfront-js-2.0',
+        Comment:
+          'Redirects to branch specific index.html when no default root object is set',
+      },
+    })
     createdFunctionARN = data.FunctionSummary?.FunctionMetadata?.FunctionARN
     createdFunctionETag = data.ETag
-  return { createdFunctionETag, createdFunctionARN }
+    return { createdFunctionETag, createdFunctionARN }
   } catch (error) {
     throw new Error(`[CloudFront] Error creating function: ${error}`)
   }
@@ -238,23 +267,22 @@ const publishCloudFrontFunction = async (name: string, etag: string) => {
   logger.info(
     `[CloudFront] ✏️ Publish function to handle redirection when no default root object...`
   )
-  await cloudfront
-    .publishFunction(
-      {
-        Name: name,
-        IfMatch: etag,
-      },
-      err => {
-        if (err) {
-          throw new Error(`[CloudFront] Error publishing function: ${err}`)
-        }
+  await cloudfront.publishFunction(
+    {
+      Name: name,
+      IfMatch: etag,
+    },
+    err => {
+      if (err) {
+        throw new Error(`[CloudFront] Error publishing function: ${err}`)
       }
-    )
+    }
+  )
 }
 
 const getBaseDistributionConfig = (
   domainName: string,
-  sslCertificateARN: string,
+  sslCertificateARN: string
 ): DistributionConfig => ({
   CallerReference: Date.now().toString(),
   Aliases: {
@@ -358,23 +386,70 @@ const getBaseDistributionConfig = (
   },
 })
 
+const clearDistributionConfigurationFunctions = (
+  distributionConfig: DistributionConfig
+): DistributionConfig => {
+  return {
+    ...distributionConfig,
+    DefaultCacheBehavior: {
+      ...distributionConfig.DefaultCacheBehavior!,
+      FunctionAssociations: {
+        Quantity: 0,
+        Items: [],
+      },
+    },
+  }
+}
+
+export type CloudFrontFunctionsAssignmentDefinition = Record<
+  EventType,
+  string[]
+>
+
+const assignFunctionsToDistribution = async (
+  distributionConfig: DistributionConfig,
+  functionAssignmentDefinitions: CloudFrontFunctionsAssignmentDefinition
+): Promise<DistributionConfig> => {
+  let updatedDistributionConfig = distributionConfig
+  for (const [eventType, functionNames] of Object.entries(
+    functionAssignmentDefinitions
+  )) {
+    for (const functionName of functionNames) {
+      const functionARN = await getCloudFrontFunctionARN(functionName)
+
+      if (!functionARN) {
+        throw new Error(
+          `[CloudFront] Requested CloudFront function "${functionName}" does not exists.`
+        )
+      }
+
+      updatedDistributionConfig = addFunctionToDistribution(
+        updatedDistributionConfig,
+        functionARN,
+        eventType as EventType
+      )
+    }
+  }
+  return updatedDistributionConfig
+}
+
 export const invalidateCloudfrontCache = async (
   distributionId: string,
   paths: string,
   wait: boolean = false
 ) => {
   logger.info('[CloudFront] ✏️ Creating invalidation...')
-  
+
   const { Invalidation } = await cloudfront.createInvalidation({
-      DistributionId: distributionId,
-      InvalidationBatch: {
-        CallerReference: Date.now().toString(),
-        Paths: {
-          Quantity: paths.split(',').length,
-          Items: paths.split(',').map(path => path.trim()),
-        },
+    DistributionId: distributionId,
+    InvalidationBatch: {
+      CallerReference: Date.now().toString(),
+      Paths: {
+        Quantity: paths.split(',').length,
+        Items: paths.split(',').map(path => path.trim()),
       },
-    })
+    },
+  })
 
   if (!Invalidation) {
     return
@@ -385,10 +460,13 @@ export const invalidateCloudfrontCache = async (
       '[CloudFront] ⏱ Waiting for invalidation to be completed (can take up to 10 minutes)...'
     )
 
-    await waitUntil.invalidationCompleted({
-      client: cloudfront,
-      maxWaitTime: 600,
-    }, { DistributionId: distributionId, Id: Invalidation.Id })
+    await waitUntil.invalidationCompleted(
+      {
+        client: cloudfront,
+        maxWaitTime: 600,
+      },
+      { DistributionId: distributionId, Id: Invalidation.Id }
+    )
     logger.info('[CloudFront] ✅ Invalidation completed')
   }
 }
@@ -398,9 +476,7 @@ export const invalidateCloudfrontCacheWithRetry = async (
   paths: string,
   wait: boolean = false,
   count: number = 0
-): Promise<
-  GetInvalidationCommandOutput | void
-> => {
+): Promise<GetInvalidationCommandOutput | void> => {
   try {
     return await invalidateCloudfrontCache(distributionId, paths, wait)
   } catch (error) {
@@ -431,78 +507,131 @@ export const getCacheInvalidations = (
     .map(string => (subFolder ? `/${subFolder}/${string}` : `/${string}`))
     .join(',')
 
-type UpdateCloudFrontDistributionOptions = {
-  shouldBlockBucketPublicAccess: true
-  noDefaultRootObject: boolean
-  oac: OAC
-  redirect403ToRoot: boolean
-} | {
-  shouldBlockBucketPublicAccess: false
-  noDefaultRootObject: boolean
-  oac: null
-  redirect403ToRoot: boolean
+type CommonUpdateCloudFrontDistributionOptions = {
+  additionalDomainNames: string[]
+  cloudFrontFunctionsAssignments: CloudFrontFunctionsAssignmentDefinition
 }
+type SpecificUpdateCloudFrontDistributionOptions =
+  | {
+      shouldBlockBucketPublicAccess: true
+      noDefaultRootObject: boolean
+      oac: OAC
+      redirect403ToRoot: boolean
+    }
+  | {
+      shouldBlockBucketPublicAccess: false
+      noDefaultRootObject: boolean
+      oac: null
+      redirect403ToRoot: boolean
+    }
 
 export const updateCloudFrontDistribution = async (
   distributionId: string,
   domainName: string,
-  options: UpdateCloudFrontDistributionOptions
+  options: CommonUpdateCloudFrontDistributionOptions &
+    SpecificUpdateCloudFrontDistributionOptions
 ) => {
-  const { shouldBlockBucketPublicAccess, oac, noDefaultRootObject, redirect403ToRoot } = options
+  const {
+    shouldBlockBucketPublicAccess,
+    oac,
+    noDefaultRootObject,
+    redirect403ToRoot,
+    additionalDomainNames,
+    cloudFrontFunctionsAssignments,
+  } = options
   try {
     let functionARN: string | undefined
     let updatedDistributionConfig: DistributionConfig
-    
-    const { DistributionConfig, ETag } = await cloudfront.getDistributionConfig({ Id: distributionId })
-    
+
+    const { DistributionConfig, ETag } = await cloudfront.getDistributionConfig(
+      { Id: distributionId }
+    )
+
     if (!DistributionConfig) {
-      throw new Error(`[Cloudfront] No distribution config found for distribution "${distributionId}"`)
+      throw new Error(
+        `[Cloudfront] No distribution config found for distribution "${distributionId}"`
+      )
     }
+
+    updatedDistributionConfig =
+      clearDistributionConfigurationFunctions(DistributionConfig)
+    updatedDistributionConfig = await assignFunctionsToDistribution(
+      updatedDistributionConfig,
+      cloudFrontFunctionsAssignments
+    )
 
     if (noDefaultRootObject) {
       functionARN =
         await createAndPublishNoDefaultRootObjectRedirectionFunction()
-        updatedDistributionConfig = addFunctionToDistribution(DistributionConfig, functionARN)
+      updatedDistributionConfig = {
+        ...updatedDistributionConfig,
+        DefaultRootObject: '',
+      }
+      updatedDistributionConfig = addFunctionToDistribution(
+        updatedDistributionConfig,
+        functionARN,
+        EventType.viewer_request
+      )
     } else {
-      updatedDistributionConfig = ensureFunctionIsNotAssociated(DistributionConfig)
+      updatedDistributionConfig = {
+        ...updatedDistributionConfig,
+        DefaultRootObject: DEFAULT_ROOT_OBJECT,
+      }
     }
 
     logger.info(
       `[Cloudfront] ✏️ Update distribution configuration "${distributionId}"...`
     )
-    
+
     if (shouldBlockBucketPublicAccess) {
       if (!oac?.originAccessControl?.Id) {
-        throw new Error(`[Cloudfront] No origin access control found for distribution "${distributionId}"`)
+        throw new Error(
+          `[Cloudfront] No origin access control found for distribution "${distributionId}"`
+        )
       }
-    
+
       updatedDistributionConfig = makeBucketPrivate(
         domainName,
         updatedDistributionConfig,
-        oac.originAccessControl.Id)
+        oac.originAccessControl.Id
+      )
     } else {
-      updatedDistributionConfig = makeBucketPublic(updatedDistributionConfig, domainName)
+      updatedDistributionConfig = makeBucketPublic(
+        updatedDistributionConfig,
+        domainName
+      )
     }
 
     if (redirect403ToRoot) {
-      updatedDistributionConfig = add403RedirectionToRoot(updatedDistributionConfig)
+      updatedDistributionConfig = add403RedirectionToRoot(
+        updatedDistributionConfig
+      )
     }
 
-    const shouldUpdateDistribution = isDistributionConfigModified(DistributionConfig!, updatedDistributionConfig)
+    if (additionalDomainNames.length > 0) {
+      updatedDistributionConfig = addAdditionalDomainNames(
+        updatedDistributionConfig,
+        additionalDomainNames
+      )
+    }
+
+    const shouldUpdateDistribution = isDistributionConfigModified(
+      DistributionConfig!,
+      updatedDistributionConfig
+    )
 
     if (!shouldUpdateDistribution) {
       logger.info(
-        `[Cloudfront] 👍 No updates needed for distribution "${distributionId}"`        
+        `[Cloudfront] 👍 No updates needed for distribution "${distributionId}"`
       )
       return
     }
 
-    await cloudfront
-      .updateDistribution({
-        Id: distributionId,
-        IfMatch: ETag,
-        DistributionConfig: updatedDistributionConfig,
-      })
+    await cloudfront.updateDistribution({
+      Id: distributionId,
+      IfMatch: ETag,
+      DistributionConfig: updatedDistributionConfig,
+    })
   } catch (error) {
     throw error
   }
@@ -511,39 +640,40 @@ export const updateCloudFrontDistribution = async (
 const isDistributionConfigModified = (
   updatedDistributionConfig: DistributionConfig,
   distributionConfig: DistributionConfig
-): boolean => JSON.stringify(updatedDistributionConfig) !== JSON.stringify(distributionConfig)
+): boolean =>
+  JSON.stringify(updatedDistributionConfig) !==
+  JSON.stringify(distributionConfig)
 
 const addFunctionToDistribution = (
   distributionConfig: DistributionConfig,
-  functionARN: string
-): DistributionConfig => ({
-  ...distributionConfig,
-  DefaultRootObject: '',
-  DefaultCacheBehavior: {
-    ...distributionConfig.DefaultCacheBehavior!,
-    FunctionAssociations: {
-      Quantity: 1,
-      Items: [{
-        FunctionARN: functionARN,
-        EventType: 'viewer-request',
-      }],
-    },
-  },
-})
-
-const ensureFunctionIsNotAssociated = (
-  distributionConfig: DistributionConfig,
-) => {
-  const configWithoutFunctions = {
+  functionARN: string,
+  eventType: EventType
+): DistributionConfig => {
+  const items =
+    distributionConfig.DefaultCacheBehavior!.FunctionAssociations?.Items ?? []
+  return {
     ...distributionConfig,
-    DefaultRootObject: DEFAULT_ROOT_OBJECT,
+    DefaultCacheBehavior: {
+      ...distributionConfig.DefaultCacheBehavior!,
+      FunctionAssociations: {
+        Quantity: items.length + 1,
+        Items: [
+          ...items,
+          {
+            FunctionARN: functionARN,
+            EventType: eventType,
+          },
+        ],
+      },
+    },
   }
-  delete configWithoutFunctions.DefaultCacheBehavior?.FunctionAssociations
-  return configWithoutFunctions
 }
 
-const makeBucketPrivate = (domainName: string, distributionConfig: DistributionConfig, originAccessControlId: string): DistributionConfig => {
-
+const makeBucketPrivate = (
+  domainName: string,
+  distributionConfig: DistributionConfig,
+  originAccessControlId: string
+): DistributionConfig => {
   const privateBucketDomainName = getS3DomainNameForBlockedBucket(domainName)
 
   const isOACAlreadyAssociated = distributionConfig?.Origins?.Items?.find(
@@ -584,14 +714,17 @@ const makeBucketPrivate = (domainName: string, distributionConfig: DistributionC
     },
     DefaultCacheBehavior: {
       ...distributionConfig.DefaultCacheBehavior,
-      ViewerProtocolPolicy: distributionConfig.DefaultCacheBehavior?.ViewerProtocolPolicy || 'redirect-to-https',
+      ViewerProtocolPolicy:
+        distributionConfig.DefaultCacheBehavior?.ViewerProtocolPolicy ||
+        'redirect-to-https',
       TargetOriginId: privateBucketDomainName,
     },
   }
 }
 
-const makeBucketPublic = (distributionConfig: DistributionConfig,
-  domainName: string,
+const makeBucketPublic = (
+  distributionConfig: DistributionConfig,
+  domainName: string
 ): DistributionConfig => {
   const isS3WebsiteAlreadyAssociated = distributionConfig?.Origins?.Items?.find(
     o => o.DomainName === getS3DomainName(domainName)
@@ -639,21 +772,41 @@ const makeBucketPublic = (distributionConfig: DistributionConfig,
     DefaultCacheBehavior: {
       ...distributionConfig.DefaultCacheBehavior,
       TargetOriginId: getOriginId(domainName),
-      ViewerProtocolPolicy: distributionConfig.DefaultCacheBehavior?.ViewerProtocolPolicy || 'redirect-to-https',
+      ViewerProtocolPolicy:
+        distributionConfig.DefaultCacheBehavior?.ViewerProtocolPolicy ||
+        'redirect-to-https',
     },
   }
 }
 
-export const add403RedirectionToRoot = (distributionConfig: DistributionConfig): DistributionConfig => {
-  const existingErrorResponse = distributionConfig.CustomErrorResponses?.Items?.some(
-    (item) => item.ErrorCode === 403
-  );
+const addAdditionalDomainNames = (
+  distributionConfig: DistributionConfig,
+  domainNames: string[]
+): DistributionConfig => {
+  const updatedDomainNames = new Set([
+    ...(distributionConfig.Aliases?.Items ?? []),
+    ...domainNames,
+  ])
+  return {
+    ...distributionConfig,
+    Aliases: {
+      Quantity: updatedDomainNames.size,
+      Items: [...updatedDomainNames],
+    },
+  }
+}
+
+const add403RedirectionToRoot = (
+  distributionConfig: DistributionConfig
+): DistributionConfig => {
+  const existingErrorResponse =
+    distributionConfig.CustomErrorResponses?.Items?.some(
+      item => item.ErrorCode === 403
+    )
 
   if (existingErrorResponse) {
-    logger.info(
-      `[Cloudfront] 👍 a custom 403 error response already exists...`
-    )
-    return distributionConfig;
+    logger.info(`[Cloudfront] 👍 a custom 403 error response already exists...`)
+    return distributionConfig
   }
 
   logger.info(
@@ -673,5 +826,5 @@ export const add403RedirectionToRoot = (distributionConfig: DistributionConfig):
         },
       ],
     },
-  };
-};
+  }
+}

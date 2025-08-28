@@ -1,3 +1,4 @@
+import { EventType, FunctionStage } from '@aws-sdk/client-cloudfront'
 import {
   createCloudFrontDistribution,
   findDeployedCloudfrontDistribution,
@@ -5,7 +6,7 @@ import {
   identifyingTag,
   invalidateCloudfrontCache,
   invalidateCloudfrontCacheWithRetry,
-  updateCloudFrontDistribution
+  updateCloudFrontDistribution,
 } from '.'
 import {
   cloudfront,
@@ -148,9 +149,13 @@ describe('cloudfront', () => {
     })
 
     it('should wait for invalidate if wait flag is true', async () => {
-      createInvalidationMock.mockReturnValue(awsResolve({ Invalidation: {
-        Id: 'some-invalidation-id'
-      } }))
+      createInvalidationMock.mockReturnValue(
+        awsResolve({
+          Invalidation: {
+            Id: 'some-invalidation-id',
+          },
+        })
+      )
       waitForMock.mockReturnValue(awsResolve())
       await invalidateCloudfrontCache(
         'some-distribution-id',
@@ -160,7 +165,7 @@ describe('cloudfront', () => {
       expect(waitForMock).toHaveBeenCalledTimes(1)
       expect(waitForMock).toHaveBeenCalledWith(expect.anything(), {
         DistributionId: 'some-distribution-id',
-        Id: 'some-invalidation-id'
+        Id: 'some-invalidation-id',
       })
     })
   })
@@ -228,7 +233,7 @@ describe('cloudfront', () => {
       waitForMock.mockReturnValue(awsResolve())
       const result = await createCloudFrontDistribution(
         'hello.lalilo.com',
-        'arn:certificate',
+        'arn:certificate'
       )
       expect(result).toEqual(distribution)
       expect(tagResourceMock).toHaveBeenCalledTimes(1)
@@ -286,9 +291,20 @@ describe('cloudfront', () => {
     beforeEach(() => {
       getDistributionConfigMock.mockReset()
       updateDistribution.mockReset()
-      listFunctions.mockReturnValueOnce(awsResolve({ Functions: [] }))
+      listFunctions.mockReturnValue(
+        awsResolve({
+          FunctionList: { Items: [] },
+        })
+      )
       publishFunction.mockReturnValue(awsResolve({}))
-      createFunction.mockReturnValue(awsResolve({ ETag: 'lol', FunctionSummary: { FunctionMetadata: { Id: 'oac-id', FunctionARN: 'plop' } } }))
+      createFunction.mockReturnValue(
+        awsResolve({
+          ETag: 'lol',
+          FunctionSummary: {
+            FunctionMetadata: { Id: 'oac-id', FunctionARN: 'plop' },
+          },
+        })
+      )
     })
 
     it.each([
@@ -308,7 +324,15 @@ describe('cloudfront', () => {
         if (noDefaultRootObject) {
           listFunctions.mockReturnValueOnce(
             awsResolve({
-              Functions: [{ FunctionConfig: { FunctionMetadata: { Id: 'oac-id', FunctionARN: 'plop' } } }],
+              FunctionList: {
+                Items: [
+                  {
+                    FunctionConfig: {
+                      FunctionMetadata: { Id: 'oac-id', FunctionARN: 'plop' },
+                    },
+                  },
+                ],
+              },
             })
           )
         }
@@ -323,16 +347,31 @@ describe('cloudfront', () => {
         const distribution = {
           Id: 'distribution-id',
           DefaultRootObject: noDefaultRootObject ? '' : 'index.html',
-          Origins: { Quantity: 1, Items: [{ Id: originId, DomainName: originDomainName }] },
+          Alias: { Quantity: 1, Items: [originDomainName] },
+          Origins: {
+            Quantity: 1,
+            Items: [{ Id: originId, DomainName: originDomainName }],
+          },
           DefaultCacheBehavior: {
             TargetOriginId: originId,
-            ...(noDefaultRootObject && { FunctionAssociations: {
-              Quantity: 1,
-              Items: [{
-                FunctionARN: 'plop',
-                EventType: 'viewer-request',
-              }]
-            }})
+            ...(noDefaultRootObject
+              ? {
+                  FunctionAssociations: {
+                    Quantity: 1,
+                    Items: [
+                      {
+                        FunctionARN: 'plop',
+                        EventType: 'viewer-request',
+                      },
+                    ],
+                  },
+                }
+              : {
+                  FunctionAssociations: {
+                    Quantity: 0,
+                    Items: [],
+                  },
+                }),
           },
         }
 
@@ -342,13 +381,27 @@ describe('cloudfront', () => {
 
         if (shouldBlockBucketPublicAccess) {
           await updateCloudFrontDistribution(distribution.Id, domainName, {
+            additionalDomainNames: [],
+            cloudFrontFunctionsAssignments: {
+              'origin-request': [],
+              'origin-response': [],
+              'viewer-request': [],
+              'viewer-response': [],
+            },
             shouldBlockBucketPublicAccess,
             noDefaultRootObject,
             oac: { originAccessControl: { Id: 'oac-id' }, ETag: 'etag' },
             redirect403ToRoot: false,
-          }) 
+          })
         } else {
           await updateCloudFrontDistribution(distribution.Id, domainName, {
+            additionalDomainNames: [],
+            cloudFrontFunctionsAssignments: {
+              'origin-request': [],
+              'origin-response': [],
+              'viewer-request': [],
+              'viewer-response': [],
+            },
             shouldBlockBucketPublicAccess,
             noDefaultRootObject,
             oac: null,
@@ -369,6 +422,7 @@ describe('cloudfront', () => {
       const distribution = {
         Id: 'distribution-id',
         Origins: { Items: [{ DomainName: getS3DomainName(domainName) }] },
+        Aliases: { Quantity: 1, Items: [domainName] },
         DefaultCacheBehavior: {
           TargetOriginId: getS3DomainName(domainName),
         },
@@ -380,6 +434,13 @@ describe('cloudfront', () => {
 
       updateDistribution.mockReturnValueOnce(awsResolve())
       await updateCloudFrontDistribution(distribution.Id, domainName, {
+        additionalDomainNames: [],
+        cloudFrontFunctionsAssignments: {
+          'origin-request': [],
+          'origin-response': [],
+          'viewer-request': [],
+          'viewer-response': [],
+        },
         shouldBlockBucketPublicAccess: true,
         noDefaultRootObject: false,
         oac,
@@ -419,10 +480,11 @@ describe('cloudfront', () => {
           getS3DomainNameForBlockedBucket(domainName)
 
         const oac = { originAccessControl: { Id: 'oac-id' }, ETag: 'etag' }
-      
+
         const distribution = {
           Id: 'distribution-id',
           Origins: { Items: [{ DomainName: originIdForPrivateBucket }] },
+          Aliases: { Quantity: 1, Items: [domainName] },
           DefaultCacheBehavior: {
             TargetOriginId: originIdForPrivateBucket,
           },
@@ -435,6 +497,13 @@ describe('cloudfront', () => {
 
         updateDistribution.mockReturnValueOnce(awsResolve())
         await updateCloudFrontDistribution(distribution.Id, domainName, {
+          additionalDomainNames: [],
+          cloudFrontFunctionsAssignments: {
+            'origin-request': [],
+            'origin-response': [],
+            'viewer-request': [],
+            'viewer-response': [],
+          },
           shouldBlockBucketPublicAccess: true,
           noDefaultRootObject,
           oac,
@@ -462,14 +531,250 @@ describe('cloudfront', () => {
       }
     )
 
-    it('should update the distribution if the 403 redirection option was not set in the existing config', async () => {
+    it('only uses the most recent LIVE functions', async () => {
       const domainName = 'hello.lalilo.com'
+      const originIdForPrivateBucket =
+        getS3DomainNameForBlockedBucket(domainName)
+
+      listFunctions.mockReturnValue(
+        awsResolve({
+          FunctionList: {
+            Items: [
+              {
+                FunctionMetadata: {
+                  LastModifiedTime: new Date('2025-08-08'),
+                  Stage: FunctionStage.DEVELOPMENT,
+                  FunctionARN: 'ARN_dev',
+                },
+                Name: 'function1',
+              },
+
+              {
+                FunctionMetadata: {
+                  LastModifiedTime: new Date('2025-06-08'),
+                  Stage: FunctionStage.LIVE,
+                  FunctionARN: 'ARN_live_old',
+                },
+                Name: 'function1',
+              },
+              {
+                FunctionMetadata: {
+                  LastModifiedTime: new Date('2025-07-08'),
+                  Stage: FunctionStage.LIVE,
+                  FunctionARN: 'ARN_live_recent',
+                },
+                Name: 'function1',
+              },
+            ],
+          },
+        })
+      )
+
+      const distribution = {
+        Id: 'distribution-id',
+        Origins: { Items: [{ DomainName: originIdForPrivateBucket }] },
+        Aliases: { Quantity: 1, Items: [domainName] },
+        CustomErrorResponses: {
+          Quantity: 0,
+        },
+      }
+
+      getDistributionConfigMock.mockReturnValue(
+        awsResolve({ DistributionConfig: distribution })
+      )
+
+      updateDistribution.mockReturnValueOnce(awsResolve())
+      await updateCloudFrontDistribution(distribution.Id, domainName, {
+        additionalDomainNames: [],
+        cloudFrontFunctionsAssignments: {
+          'origin-request': ['function1'],
+          'origin-response': [],
+          'viewer-request': [],
+          'viewer-response': [],
+        },
+        shouldBlockBucketPublicAccess: false,
+        noDefaultRootObject: false,
+        oac: null,
+        redirect403ToRoot: true,
+      })
+
+      expect(updateDistribution).toHaveBeenCalled()
+
+      expect(updateDistribution).toHaveBeenCalledWith(
+        expect.objectContaining({
+          DistributionConfig: expect.objectContaining({
+            DefaultCacheBehavior: expect.objectContaining({
+              FunctionAssociations: {
+                Quantity: 1,
+                Items: [
+                  {
+                    FunctionARN: 'ARN_live_recent',
+                    EventType: EventType.origin_request,
+                  },
+                ],
+              },
+            }),
+          }),
+        })
+      )
+    })
+
+    it.each([
+      {
+        originRequestFunctionNames: [],
+        viewerRequestFunctionNames: [],
+        withNoDefaultRootObjectFunction: false,
+      },
+      {
+        originRequestFunctionNames: [],
+        viewerRequestFunctionNames: [],
+        withNoDefaultRootObjectFunction: true,
+      },
+      {
+        originRequestFunctionNames: ['newFunction1', 'newFunction2'],
+        viewerRequestFunctionNames: ['newFunction3'],
+        withNoDefaultRootObjectFunction: false,
+      },
+      {
+        originRequestFunctionNames: ['newFunction1', 'newFunction2'],
+        viewerRequestFunctionNames: ['newFunction3'],
+        withNoDefaultRootObjectFunction: true,
+      },
+    ])(
+      'should override existing distribution functions by provided one',
+      async ({
+        originRequestFunctionNames,
+        viewerRequestFunctionNames,
+        withNoDefaultRootObjectFunction,
+      }) => {
+        const domainName = 'hello.lalilo.com'
+        const originIdForPrivateBucket =
+          getS3DomainNameForBlockedBucket(domainName)
+
+        listFunctions.mockReturnValue(
+          awsResolve({
+            FunctionList: {
+              Items: [
+                {
+                  FunctionMetadata: {
+                    LastModifiedTime: new Date('2025-06-08'),
+                    Stage: FunctionStage.LIVE,
+                    FunctionARN: 'newFunction1ARN',
+                  },
+                  Name: 'newFunction1',
+                },
+                {
+                  FunctionMetadata: {
+                    LastModifiedTime: new Date('2025-06-08'),
+                    Stage: FunctionStage.LIVE,
+                    FunctionARN: 'newFunction2ARN',
+                  },
+                  Name: 'newFunction2',
+                },
+                {
+                  FunctionMetadata: {
+                    LastModifiedTime: new Date('2025-06-08'),
+                    Stage: FunctionStage.LIVE,
+                    FunctionARN: 'newFunction3ARN',
+                  },
+                  Name: 'newFunction3',
+                },
+              ],
+            },
+          })
+        )
+
+        const distribution = {
+          Id: 'distribution-id',
+          Origins: { Items: [{ DomainName: originIdForPrivateBucket }] },
+          Aliases: { Quantity: 1, Items: [domainName] },
+          DefaultCacheBehavior: {
+            TargetOriginId: originIdForPrivateBucket,
+            FunctionAssociations: {
+              Quantity: 2,
+              Items: [
+                {
+                  FunctionARN: 'function1ARN',
+                  EventType: EventType.origin_request,
+                },
+                {
+                  FunctionARN: 'function2ARN',
+                  EventType: EventType.viewer_request,
+                },
+              ],
+            },
+          },
+          CustomErrorResponses: {
+            Quantity: 0,
+          },
+        }
+
+        getDistributionConfigMock.mockReturnValue(
+          awsResolve({ DistributionConfig: distribution })
+        )
+
+        updateDistribution.mockReturnValueOnce(awsResolve())
+        await updateCloudFrontDistribution(distribution.Id, domainName, {
+          additionalDomainNames: [],
+          cloudFrontFunctionsAssignments: {
+            'origin-request': originRequestFunctionNames,
+            'origin-response': [],
+            'viewer-request': viewerRequestFunctionNames,
+            'viewer-response': [],
+          },
+          shouldBlockBucketPublicAccess: false,
+          noDefaultRootObject: withNoDefaultRootObjectFunction,
+          oac: null,
+          redirect403ToRoot: true,
+        })
+
+        expect(updateDistribution).toHaveBeenCalled()
+        const expectedFunctions = [
+          ...originRequestFunctionNames.map(functionName => ({
+            FunctionARN: `${functionName}ARN`,
+            EventType: EventType.origin_request,
+          })),
+          ...viewerRequestFunctionNames.map(functionName => ({
+            FunctionARN: `${functionName}ARN`,
+            EventType: EventType.viewer_request,
+          })),
+        ]
+        if (withNoDefaultRootObjectFunction) {
+          expectedFunctions.push({
+            FunctionARN: 'plop',
+            EventType: EventType.viewer_request,
+          })
+        }
+
+        expect(updateDistribution).toHaveBeenCalledWith(
+          expect.objectContaining({
+            DistributionConfig: expect.objectContaining({
+              DefaultCacheBehavior: expect.objectContaining({
+                FunctionAssociations: {
+                  Quantity:
+                    originRequestFunctionNames.length +
+                    viewerRequestFunctionNames.length +
+                    (withNoDefaultRootObjectFunction ? 1 : 0),
+                  Items: expectedFunctions,
+                },
+              }),
+            }),
+          })
+        )
+      }
+    )
+
+    it('should update the distribution if additionalDomainNames are provided', async () => {
+      const domainName = 'hello.lalilo.com'
+      const additionalDomainName1 = 'ola.lalilo.com'
+      const additionalDomainName2 = 'hallo.lalilo.com'
       const originIdForPrivateBucket =
         getS3DomainNameForBlockedBucket(domainName)
 
       const distribution = {
         Id: 'distribution-id',
         Origins: { Items: [{ DomainName: originIdForPrivateBucket }] },
+        Aliases: { Quantity: 1, Items: [domainName] },
         DefaultCacheBehavior: {
           TargetOriginId: originIdForPrivateBucket,
         },
@@ -484,6 +789,62 @@ describe('cloudfront', () => {
 
       updateDistribution.mockReturnValueOnce(awsResolve())
       await updateCloudFrontDistribution(distribution.Id, domainName, {
+        additionalDomainNames: [additionalDomainName1, additionalDomainName2],
+        cloudFrontFunctionsAssignments: {
+          'origin-request': [],
+          'origin-response': [],
+          'viewer-request': [],
+          'viewer-response': [],
+        },
+        shouldBlockBucketPublicAccess: false,
+        noDefaultRootObject: false,
+        oac: null,
+        redirect403ToRoot: true,
+      })
+
+      expect(updateDistribution).toHaveBeenCalled()
+      expect(updateDistribution).toHaveBeenCalledWith(
+        expect.objectContaining({
+          DistributionConfig: expect.objectContaining({
+            Aliases: {
+              Quantity: 3,
+              Items: [domainName, additionalDomainName1, additionalDomainName2],
+            },
+          }),
+        })
+      )
+    })
+
+    it('should update the distribution if the 403 redirection option was not set in the existing config', async () => {
+      const domainName = 'hello.lalilo.com'
+      const originIdForPrivateBucket =
+        getS3DomainNameForBlockedBucket(domainName)
+
+      const distribution = {
+        Id: 'distribution-id',
+        Origins: { Items: [{ DomainName: originIdForPrivateBucket }] },
+        Aliases: { Quantity: 1, Items: [domainName] },
+        DefaultCacheBehavior: {
+          TargetOriginId: originIdForPrivateBucket,
+        },
+        CustomErrorResponses: {
+          Quantity: 0,
+        },
+      }
+
+      getDistributionConfigMock.mockReturnValue(
+        awsResolve({ DistributionConfig: distribution })
+      )
+
+      updateDistribution.mockReturnValueOnce(awsResolve())
+      await updateCloudFrontDistribution(distribution.Id, domainName, {
+        additionalDomainNames: [],
+        cloudFrontFunctionsAssignments: {
+          'origin-request': [],
+          'origin-response': [],
+          'viewer-request': [],
+          'viewer-response': [],
+        },
         shouldBlockBucketPublicAccess: false,
         noDefaultRootObject: false,
         oac: null,
@@ -517,16 +878,19 @@ describe('cloudfront', () => {
       const distribution = {
         Id: 'distribution-id',
         Origins: { Items: [{ DomainName: originIdForPrivateBucket }] },
+        Aliases: { Quantity: 1, Items: [domainName] },
         DefaultRootObject: '',
         DefaultCacheBehavior: {
           TargetOriginId: originIdForPrivateBucket,
           FunctionAssociations: {
             Quantity: 1,
-            Items: [{
-              FunctionARN: 'plop',
-              EventType: 'viewer-request',
-            }]
-          }
+            Items: [
+              {
+                FunctionARN: 'plop',
+                EventType: 'viewer-request',
+              },
+            ],
+          },
         },
         CustomErrorResponses: {
           Quantity: 1,
@@ -546,6 +910,13 @@ describe('cloudfront', () => {
       )
 
       await updateCloudFrontDistribution(distribution.Id, domainName, {
+        additionalDomainNames: [],
+        cloudFrontFunctionsAssignments: {
+          'origin-request': [],
+          'origin-response': [],
+          'viewer-request': [],
+          'viewer-response': [],
+        },
         shouldBlockBucketPublicAccess: true,
         noDefaultRootObject: true,
         oac: {

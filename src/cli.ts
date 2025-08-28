@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { EventType } from '@aws-sdk/client-cloudfront'
 import * as yargs from 'yargs'
 import { deploy } from './deploy'
 import { logger } from './logger'
@@ -89,6 +90,44 @@ yargs
             return numValue
           },
         })
+        .option('additionalDomainNames', {
+          type: 'array',
+          default: [],
+          describe: `Additional domains to use as "Alternate Domain Names".
+          Use it like this: --additionalDomainNames name1 name2`,
+        })
+        .option('originRequestFunctionNames', {
+          type: 'array',
+          default: [],
+          describe: `The names of CloudFront functions that will be associated with the distribution as Origin_Request
+          Use it like this: --originRequestFunctionNames function1 function2
+
+          This is useful when you want to assign already existing functions on a CloudFront distribution deployed for a SPA`,
+        })
+        .option('originResponseFunctionNames', {
+          type: 'array',
+          default: [],
+          describe: `The names of CloudFront functions that will be associated with the distribution as Origin_Response
+          Use it like this: --originResponseFunctionNames function1 function2
+
+          This is useful when you want to assign already existing functions on a CloudFront distribution deployed for a SPA`,
+        })
+        .option('viewerRequestFunctionNames', {
+          type: 'array',
+          default: [],
+          describe: `The names of CloudFront functions that will be associated with the distribution as Viewer_Request
+          Use it like this: --viewerRequestFunctionNames function1 function2
+
+          This is useful when you want to assign already existing functions on a CloudFront distribution deployed for a SPA`,
+        })
+        .option('viewerResponseFunctionNames', {
+          type: 'array',
+          default: [],
+          describe: `The names of CloudFront functions that will be associated with the distribution as Viewer_Response
+          Use it like this: --viewerResponseFunctionNames function1 function2
+
+          This is useful when you want to assign already existing functions on a CloudFront distribution deployed for a SPA`,
+        })
     },
     async argv => {
       if (!argv.domainName) {
@@ -105,7 +144,14 @@ yargs
           argv.shouldBlockBucketPublicAccess,
           argv.noDefaultRootObject,
           argv.redirect403ToRoot,
-          argv.objectExpirationDays
+          argv.objectExpirationDays,
+          argv.additionalDomainNames,
+          {
+            [EventType.origin_request]: argv.originRequestFunctionNames,
+            [EventType.origin_response]: argv.originResponseFunctionNames,
+            [EventType.viewer_request]: argv.viewerRequestFunctionNames,
+            [EventType.viewer_response]: argv.viewerResponseFunctionNames,
+          }
         )
         logger.info('✅ done!')
         process.exit(0)
