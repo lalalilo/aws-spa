@@ -383,8 +383,6 @@ describe('cloudfront', () => {
           await updateCloudFrontDistribution(distribution.Id, domainName, {
             additionalDomainNames: [],
             cloudFrontFunctionsAssignments: {
-              'origin-request': [],
-              'origin-response': [],
               'viewer-request': [],
               'viewer-response': [],
             },
@@ -397,8 +395,6 @@ describe('cloudfront', () => {
           await updateCloudFrontDistribution(distribution.Id, domainName, {
             additionalDomainNames: [],
             cloudFrontFunctionsAssignments: {
-              'origin-request': [],
-              'origin-response': [],
               'viewer-request': [],
               'viewer-response': [],
             },
@@ -436,8 +432,6 @@ describe('cloudfront', () => {
       await updateCloudFrontDistribution(distribution.Id, domainName, {
         additionalDomainNames: [],
         cloudFrontFunctionsAssignments: {
-          'origin-request': [],
-          'origin-response': [],
           'viewer-request': [],
           'viewer-response': [],
         },
@@ -499,8 +493,6 @@ describe('cloudfront', () => {
         await updateCloudFrontDistribution(distribution.Id, domainName, {
           additionalDomainNames: [],
           cloudFrontFunctionsAssignments: {
-            'origin-request': [],
-            'origin-response': [],
             'viewer-request': [],
             'viewer-response': [],
           },
@@ -587,9 +579,7 @@ describe('cloudfront', () => {
       await updateCloudFrontDistribution(distribution.Id, domainName, {
         additionalDomainNames: [],
         cloudFrontFunctionsAssignments: {
-          'origin-request': ['function1'],
-          'origin-response': [],
-          'viewer-request': [],
+          'viewer-request': ['function1'],
           'viewer-response': [],
         },
         shouldBlockBucketPublicAccess: false,
@@ -609,7 +599,7 @@ describe('cloudfront', () => {
                 Items: [
                   {
                     FunctionARN: 'ARN_live_recent',
-                    EventType: EventType.origin_request,
+                    EventType: EventType.viewer_request,
                   },
                 ],
               },
@@ -621,29 +611,20 @@ describe('cloudfront', () => {
 
     it.each([
       {
-        originRequestFunctionNames: [],
-        viewerRequestFunctionNames: [],
+        viewerRequestFunctionNames: ['newFunction1'],
         withNoDefaultRootObjectFunction: false,
       },
       {
-        originRequestFunctionNames: [],
-        viewerRequestFunctionNames: [],
-        withNoDefaultRootObjectFunction: true,
-      },
-      {
-        originRequestFunctionNames: ['newFunction1', 'newFunction2'],
-        viewerRequestFunctionNames: ['newFunction3'],
+        viewerRequestFunctionNames: ['newFunction1', 'newFunction2'],
         withNoDefaultRootObjectFunction: false,
       },
       {
-        originRequestFunctionNames: ['newFunction1', 'newFunction2'],
-        viewerRequestFunctionNames: ['newFunction3'],
+        viewerRequestFunctionNames: ['newFunction1'],
         withNoDefaultRootObjectFunction: true,
       },
     ])(
       'should override existing distribution functions by provided one',
       async ({
-        originRequestFunctionNames,
         viewerRequestFunctionNames,
         withNoDefaultRootObjectFunction,
       }) => {
@@ -675,9 +656,17 @@ describe('cloudfront', () => {
                   FunctionMetadata: {
                     LastModifiedTime: new Date('2025-06-08'),
                     Stage: FunctionStage.LIVE,
-                    FunctionARN: 'newFunction3ARN',
+                    FunctionARN: 'function1ARN',
                   },
-                  Name: 'newFunction3',
+                  Name: 'function1',
+                },
+                {
+                  FunctionMetadata: {
+                    LastModifiedTime: new Date('2025-06-08'),
+                    Stage: FunctionStage.LIVE,
+                    FunctionARN: 'function2ARN',
+                  },
+                  Name: 'function2',
                 },
               ],
             },
@@ -691,15 +680,15 @@ describe('cloudfront', () => {
           DefaultCacheBehavior: {
             TargetOriginId: originIdForPrivateBucket,
             FunctionAssociations: {
-              Quantity: 2,
+              Quantity: 1,
               Items: [
                 {
                   FunctionARN: 'function1ARN',
-                  EventType: EventType.origin_request,
+                  EventType: EventType.viewer_request,
                 },
                 {
                   FunctionARN: 'function2ARN',
-                  EventType: EventType.viewer_request,
+                  EventType: EventType.viewer_response,
                 },
               ],
             },
@@ -717,8 +706,6 @@ describe('cloudfront', () => {
         await updateCloudFrontDistribution(distribution.Id, domainName, {
           additionalDomainNames: [],
           cloudFrontFunctionsAssignments: {
-            'origin-request': originRequestFunctionNames,
-            'origin-response': [],
             'viewer-request': viewerRequestFunctionNames,
             'viewer-response': [],
           },
@@ -729,16 +716,13 @@ describe('cloudfront', () => {
         })
 
         expect(updateDistribution).toHaveBeenCalled()
-        const expectedFunctions = [
-          ...originRequestFunctionNames.map(functionName => ({
-            FunctionARN: `${functionName}ARN`,
-            EventType: EventType.origin_request,
-          })),
-          ...viewerRequestFunctionNames.map(functionName => ({
+        const expectedFunctions = viewerRequestFunctionNames.map(
+          functionName => ({
             FunctionARN: `${functionName}ARN`,
             EventType: EventType.viewer_request,
-          })),
-        ]
+          })
+        )
+
         if (withNoDefaultRootObjectFunction) {
           expectedFunctions.push({
             FunctionARN: 'plop',
@@ -752,7 +736,6 @@ describe('cloudfront', () => {
               DefaultCacheBehavior: expect.objectContaining({
                 FunctionAssociations: {
                   Quantity:
-                    originRequestFunctionNames.length +
                     viewerRequestFunctionNames.length +
                     (withNoDefaultRootObjectFunction ? 1 : 0),
                   Items: expectedFunctions,
@@ -791,8 +774,6 @@ describe('cloudfront', () => {
       await updateCloudFrontDistribution(distribution.Id, domainName, {
         additionalDomainNames: [additionalDomainName1, additionalDomainName2],
         cloudFrontFunctionsAssignments: {
-          'origin-request': [],
-          'origin-response': [],
           'viewer-request': [],
           'viewer-response': [],
         },
@@ -840,8 +821,6 @@ describe('cloudfront', () => {
       await updateCloudFrontDistribution(distribution.Id, domainName, {
         additionalDomainNames: [],
         cloudFrontFunctionsAssignments: {
-          'origin-request': [],
-          'origin-response': [],
           'viewer-request': [],
           'viewer-response': [],
         },
@@ -912,8 +891,6 @@ describe('cloudfront', () => {
       await updateCloudFrontDistribution(distribution.Id, domainName, {
         additionalDomainNames: [],
         cloudFrontFunctionsAssignments: {
-          'origin-request': [],
-          'origin-response': [],
           'viewer-request': [],
           'viewer-response': [],
         },

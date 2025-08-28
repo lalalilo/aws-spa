@@ -401,10 +401,10 @@ const clearDistributionConfigurationFunctions = (
   }
 }
 
-export type CloudFrontFunctionsAssignmentDefinition = Record<
-  EventType,
-  string[]
->
+export interface CloudFrontFunctionsAssignmentDefinition {
+  [EventType.viewer_request]: string[]
+  [EventType.viewer_response]: string[]
+}
 
 const assignFunctionsToDistribution = async (
   distributionConfig: DistributionConfig,
