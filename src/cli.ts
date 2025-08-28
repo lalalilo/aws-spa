@@ -96,22 +96,6 @@ yargs
           describe: `Additional domains to use as "Alternate Domain Names".
           Use it like this: --additionalDomainNames name1 name2`,
         })
-        .option('originRequestFunctionNames', {
-          type: 'array',
-          default: [],
-          describe: `The names of CloudFront functions that will be associated with the distribution as Origin_Request
-          Use it like this: --originRequestFunctionNames function1 function2
-
-          This is useful when you want to assign already existing functions on a CloudFront distribution deployed for a SPA`,
-        })
-        .option('originResponseFunctionNames', {
-          type: 'array',
-          default: [],
-          describe: `The names of CloudFront functions that will be associated with the distribution as Origin_Response
-          Use it like this: --originResponseFunctionNames function1 function2
-
-          This is useful when you want to assign already existing functions on a CloudFront distribution deployed for a SPA`,
-        })
         .option('viewerRequestFunctionNames', {
           type: 'array',
           default: [],
@@ -147,8 +131,6 @@ yargs
           argv.objectExpirationDays,
           argv.additionalDomainNames,
           {
-            [EventType.origin_request]: argv.originRequestFunctionNames,
-            [EventType.origin_response]: argv.originResponseFunctionNames,
             [EventType.viewer_request]: argv.viewerRequestFunctionNames,
             [EventType.viewer_response]: argv.viewerResponseFunctionNames,
           }
