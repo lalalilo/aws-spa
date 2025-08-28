@@ -69,10 +69,10 @@ aws-spa deploy app.example.com/$(git branch | grep * | cut -d ' ' -f2)
 - `--noDefaultRootobject`: Instead of using index.html as the root object, allows to resolve example.com/<branch> to example.com/<branch>/index.html using a cloudfront function.
 - `--redirect403ToRoot`: Redirect 403 errors to the root of the SPA. This is useful if you want to use client-side routing with an S3 static website without using a hash router.
 - `--objectExpirationDays`: Add a lifecycle configuration to the bucket that clean object after a number of days. This avoid having numerous outdated branch in the bucket.
-- `--originRequestFunctionNames`: Add existing CloudFront functions as origin-request function. The functions must already exist or the command will fail.
-- `--originResponseFunctionNames`: Add existing CloudFront functions as origin-response function. The functions must already exist or the command will fail.
-- `--viewerRequestFunctionNames`: Add existing CloudFront functions as viewer-request function. The functions must already exist or the command will fail.
-- `--viewerResponseFunctionNames`: Add existing CloudFront functions as viewer-response function. The functions must already exist or the command will fail.
+- `--originRequestFunctionNames`: Add existing CloudFront functions as origin-request function. Specified functions must already exist or the command will fail.
+- `--originResponseFunctionNames`: Add existing CloudFront functions as origin-response function. Specified functions must already exist or the command will fail.
+- `--viewerRequestFunctionNames`: Add existing CloudFront functions as viewer-request function. Specified functions must already exist or the command will fail.
+- `--viewerResponseFunctionNames`: Add existing CloudFront functions as viewer-response function. Specified functions must already exist or the command will fail.
 - `--additionalDomainNames`: Specify additional domain names to assign to the CloudFront definition (in addition to the domain name).
 
 ## Migrate an existing SPA on aws-spa
