@@ -20,11 +20,7 @@
     "acm",
     "route53"
   ],
-  "tags": [
-    "react",
-    "deploy",
-    "aws"
-  ],
+  "tags": ["react", "deploy", "aws"],
   "bugs": {
     "url": "https://github.com/lalalilo/aws-spa/issues"
   },
@@ -42,14 +38,9 @@
   "bin": {
     "aws-spa": "./lib/cli.js"
   },
-  "files": [
-    "lib/**/*"
-  ],
+  "files": ["lib/**/*"],
   "release": {
-    "branches": [
-      "main",
-      "next"
-    ]
+    "branches": ["main", "next"]
   },
   "dependencies": {
     "@aws-sdk/client-acm": "^3.667.0",
@@ -71,6 +62,8 @@
     "@babel/plugin-proposal-object-rest-spread": "^7.18.9",
     "@babel/preset-env": "^7.19.0",
     "@babel/preset-typescript": "^7.18.6",
+    "@commitlint/cli": "^17.0.0",
+    "@commitlint/config-conventional": "^17.0.0",
     "@types/adm-zip": "^0.5.0",
     "@types/inquirer": "^8.2.3",
     "@types/jest": "^29.0.2",
