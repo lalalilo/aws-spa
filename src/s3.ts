@@ -126,7 +126,7 @@ export const setBucketWebsite = (bucketName: string) => {
 }
 
 export const setBucketPolicy = (bucketName: string) => {
-  logger.info(`[S3] ✏️ Allow public read to "${bucketName}"...`)
+  logger.info(`[S3] ✏️ Allow HTTPS public read to "${bucketName}"...`)
   return s3.putBucketPolicy({
     Bucket: bucketName,
     Policy: JSON.stringify({
