@@ -127,7 +127,7 @@ describe('s3', () => {
       putBucketPolicySpy.mockReturnValue(awsResolve())
       await setBucketPolicy('some-bucket')
       expect(logSpy).toHaveBeenCalledTimes(1)
-      expect(logSpy.mock.calls[0][0]).toContain('Allow public read')
+      expect(logSpy.mock.calls[0][0]).toContain('Allow HTTPS public read')
     })
 
     it('should set bucket policy', async () => {
