@@ -1,5 +1,4 @@
 import {
-  GetBucketLifecycleConfigurationCommandOutput,
   GetBucketLifecycleConfigurationOutput,
   LifecycleRule,
   PutBucketLifecycleConfigurationCommandInput,
@@ -141,6 +140,18 @@ export const setBucketPolicy = (bucketName: string) => {
           Action: 's3:GetObject',
           Resource: `arn:aws:s3:::${bucketName}/*`,
         },
+        {
+          Sid: 'DenyHTTPRequests',
+          Effect: 'Deny',
+          Principal: '*',
+          Action: 's3:*',
+          Resource: `arn:aws:s3:::${bucketName}/*`,
+          Condition: {
+            Bool: {
+              'aws:SecureTransport': 'false',
+            },
+          },
+        },
       ],
     }),
   })
@@ -169,6 +180,18 @@ export const setBucketPolicyForOAC = (
             Condition: {
               StringEquals: {
                 'AWS:SourceArn': `arn:aws:cloudfront::651828462322:distribution/${distributionId}`,
+              },
+            },
+          },
+          {
+            Sid: 'DenyHTTPRequests',
+            Effect: 'Deny',
+            Principal: '*',
+            Action: 's3:*',
+            Resource: `arn:aws:s3:::${bucketName}/*`,
+            Condition: {
+              Bool: {
+                'aws:SecureTransport': 'false',
               },
             },
           },
