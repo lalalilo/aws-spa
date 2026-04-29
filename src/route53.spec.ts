@@ -1,5 +1,5 @@
 import { route53 } from './aws-services'
-import { createHostedZone, findHostedZone, updateRecord } from './route53'
+import { createHostedZone, findHostedZone, needsUpdateRecord, updateRecord } from './route53'
 import { awsResolve } from './test-helper'
 
 jest.mock('inquirer', () => {
@@ -69,6 +69,40 @@ describe('route53', () => {
       expect(createHostedZoneMock).toHaveBeenCalledTimes(1)
       const hostedZoneParams: any = createHostedZoneMock.mock.calls[0][0]
       expect(hostedZoneParams.Name).toEqual('hello.example.com')
+    })
+  })
+
+  describe('needsUpdateRecord', () => {
+    const listResourceRecordSetsMock = jest.spyOn(route53, 'listResourceRecordSets')
+
+    afterEach(() => {
+      listResourceRecordSetsMock.mockReset()
+    })
+
+    it('should return true when no records exist in the hosted zone', async () => {
+      listResourceRecordSetsMock.mockReturnValue(awsResolve({ ResourceRecordSets: [] }))
+
+      expect(await needsUpdateRecord('zone-id', 'hello.example.com', 'dist.cloudfront.net')).toBe(true)
+    })
+
+    it('should return true when records exist but none match the domain name', async () => {
+      listResourceRecordSetsMock.mockReturnValue(
+        awsResolve({
+          ResourceRecordSets: [{ Name: 'other.example.com.', Type: 'A', AliasTarget: { HostedZoneId: 'Z2FDTNDATAQYW2', DNSName: 'other.cloudfront.net.' } }],
+        })
+      )
+
+      expect(await needsUpdateRecord('zone-id', 'hello.example.com', 'dist.cloudfront.net')).toBe(true)
+    })
+
+    it('should return false when a matching A record already points to the right distribution', async () => {
+      listResourceRecordSetsMock.mockReturnValue(
+        awsResolve({
+          ResourceRecordSets: [{ Name: 'hello.example.com.', Type: 'A', AliasTarget: { HostedZoneId: 'Z2FDTNDATAQYW2', DNSName: 'dist.cloudfront.net.' } }],
+        })
+      )
+
+      expect(await needsUpdateRecord('zone-id', 'hello.example.com', 'dist.cloudfront.net')).toBe(false)
     })
   })
 
