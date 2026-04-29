@@ -138,6 +138,9 @@ export const needsUpdateRecord = async (
       }
     }
   }
+
+  logger.info(`[route53] 🔍 No matching record found.`)
+  return true
 }
 
 export const updateRecord = async (
