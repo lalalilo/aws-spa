@@ -16,7 +16,7 @@ export const doesS3BucketExists = async (bucketName: string) => {
     logger.info(`[S3] 🔍 Looking for bucket "${bucketName}"...`)
     await s3.headBucket({ Bucket: bucketName })
   } catch (error: any) {
-    if (error.statusCode === 404) {
+    if (error.$metadata?.httpStatusCode === 404) {
       logger.info(`[S3] 😬 Bucket "${bucketName}" not found...`)
       return false
     }
@@ -35,7 +35,7 @@ export const createBucket = async (bucketName: string) => {
       Bucket: bucketName,
     })
   } catch (error: any) {
-    if (error.statusCode === 409) {
+    if (error.$metadata?.httpStatusCode === 409) {
       throw new Error(
         '[S3] It seems that a bucket already exists but in an unsupported region... You should delete it first.'
       )
@@ -63,7 +63,7 @@ export const confirmBucketManagement = async (bucketName: string) => {
       return true
     }
   } catch (error: any) {
-    if (error.statusCode !== 404) {
+    if (error.$metadata?.httpStatusCode !== 404) {
       throw error
     }
   }
@@ -315,7 +315,7 @@ export const upsertLifeCycleConfiguration = async (
           rule.Expiration?.Days === objectExpirationDays
       ) ?? false
   } catch (error: any) {
-    if (error.Code !== 'NoSuchLifecycleConfiguration') {
+    if (error.name !== 'NoSuchLifecycleConfiguration') {
       throw error
     }
   }

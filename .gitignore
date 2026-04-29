@@ -3,3 +3,4 @@ lib
 coverage
 yarn-error.log
 build
+.claude/settings.local.json
