@@ -11,7 +11,7 @@ export const getRoleARNForBasicLambdaExectution = async (
     logger.info(`[IAM] 👍 ${roleName} found`)
     return Role?.Arn
   } catch (error: any) {
-    if (error.statusCode !== 404) {
+    if (error.$metadata?.httpStatusCode !== 404) {
       throw error
     }
     logger.info(`[IAM] ✏️ ${roleName} not found. Creating it...`)
