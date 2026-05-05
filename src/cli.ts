@@ -117,6 +117,15 @@ yargs
       if (!argv.domainName) {
         throw new Error('domainName must be provided')
       }
+      if (
+        argv.noDefaultRootObject &&
+        (argv.viewerRequestFunctionNames as string[]).length > 0
+      ) {
+        logger.error(
+          '💥 --noDefaultRootObject and --viewerRequestFunctionNames are mutually exclusive: both require the viewer-request function slot, which CloudFront limits to one function per behavior.'
+        )
+        process.exit(1)
+      }
       try {
         await deploy(
           argv.domainName,
