@@ -411,10 +411,21 @@ const assignFunctionsToDistribution = async (
   functionAssignmentDefinitions: CloudFrontFunctionsAssignmentDefinition
 ): Promise<DistributionConfig> => {
   let updatedDistributionConfig = distributionConfig
+  logger.info(
+    `[CloudFront] 🔍 Assigning functions: ${JSON.stringify(
+      functionAssignmentDefinitions
+    )}`
+  )
   for (const [eventType, functionNames] of Object.entries(
     functionAssignmentDefinitions
   )) {
+    logger.info(
+      `[CloudFront] 🔍 Processing eventType "${eventType}" with ${functionNames.length} function(s)`
+    )
     for (const functionName of functionNames) {
+      logger.info(
+        `[CloudFront] 🔍 Looking up CloudFront function "${functionName}"...`
+      )
       const functionARN = await getCloudFrontFunctionARN(functionName)
 
       if (!functionARN) {
@@ -423,10 +434,16 @@ const assignFunctionsToDistribution = async (
         )
       }
 
+      logger.info(
+        `[CloudFront] ✅ Found function "${functionName}" with ARN "${functionARN}"`
+      )
       updatedDistributionConfig = addFunctionToDistribution(
         updatedDistributionConfig,
         functionARN,
         eventType as EventType
+      )
+      logger.info(
+        `[CloudFront] ✅ Assigned function "${functionName}" to "${eventType}"`
       )
     }
   }
